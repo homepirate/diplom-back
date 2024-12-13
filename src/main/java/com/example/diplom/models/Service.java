@@ -13,7 +13,7 @@ public class Service extends Base {
     private String name;
     private BigDecimal price;
     private Set<VisitService> visitServices = new HashSet<>();
-    private Doctor doctor;  // New field for the associated doctor
+    private Doctor doctor;
 
     public Service() {
     }
@@ -37,7 +37,7 @@ public class Service extends Base {
     }
 
     @ManyToOne
-    @JoinColumn(name = "doctor_id", nullable = false)  // Foreign key for Doctor
+    @JoinColumn(name = "doctor_id", nullable = false)
     public Doctor getDoctor() {
         return doctor;
     }

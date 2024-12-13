@@ -14,7 +14,7 @@ public class Doctor extends Base {
     private String email;
     private String uniqueCode;
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
-    private Set<Service> services = new HashSet<>();  // New field for services
+    private Set<Service> services = new HashSet<>();
 
     public Doctor() {
     }
@@ -73,7 +73,6 @@ public class Doctor extends Base {
         this.doctorPatients = doctorPatients;
     }
 
-    // One-to-many relationship with Service
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     public Set<Service> getServices() {
         return services;
