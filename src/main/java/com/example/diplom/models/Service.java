@@ -8,19 +8,17 @@ import java.util.Set;
 
 @Entity
 @Table(name = "services")
-public class Service extends Base{
-
+public class Service extends Base {
 
     private String name;
-
     private BigDecimal price;
-
     private Set<VisitService> visitServices = new HashSet<>();
+    private Doctor doctor;  // New field for the associated doctor
 
     public Service() {
     }
 
-    @Column(name="name", nullable=false, length=100)
+    @Column(name = "name", nullable = false, length = 100)
     public String getName() {
         return name;
     }
@@ -29,13 +27,23 @@ public class Service extends Base{
         this.name = name;
     }
 
-    @Column(name="price", nullable=false, precision=10, scale=2)
+    @Column(name = "price", nullable = false, precision = 10, scale = 2)
     public BigDecimal getPrice() {
         return price;
     }
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    @ManyToOne
+    @JoinColumn(name = "doctor_id", nullable = false)  // Foreign key for Doctor
+    public Doctor getDoctor() {
+        return doctor;
+    }
+
+    public void setDoctor(Doctor doctor) {
+        this.doctor = doctor;
     }
 
     @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -46,7 +54,6 @@ public class Service extends Base{
     public void setVisitServices(Set<VisitService> visitServices) {
         this.visitServices = visitServices;
     }
-
 
     @Override
     public String toString() {

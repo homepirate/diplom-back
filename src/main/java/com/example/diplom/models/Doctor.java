@@ -6,7 +6,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "doctors")
-public class Doctor extends Base{
+public class Doctor extends Base {
 
     private String fullName;
     private String specialization;
@@ -14,7 +14,7 @@ public class Doctor extends Base{
     private String email;
     private String uniqueCode;
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
-
+    private Set<Service> services = new HashSet<>();  // New field for services
 
     public Doctor() {
     }
@@ -71,6 +71,16 @@ public class Doctor extends Base{
 
     public void setDoctorPatients(Set<DoctorPatient> doctorPatients) {
         this.doctorPatients = doctorPatients;
+    }
+
+    // One-to-many relationship with Service
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    public Set<Service> getServices() {
+        return services;
+    }
+
+    public void setServices(Set<Service> services) {
+        this.services = services;
     }
 
     @Override
