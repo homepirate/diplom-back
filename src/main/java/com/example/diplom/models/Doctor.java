@@ -6,12 +6,10 @@ import java.util.Set;
 
 @Entity
 @Table(name = "doctors")
-public class Doctor extends Base {
+public class Doctor extends User {
 
     private String fullName;
     private String specialization;
-    private String phone;
-    private String email;
     private String uniqueCode;
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
     private Set<Service> services = new HashSet<>();
@@ -19,7 +17,7 @@ public class Doctor extends Base {
     public Doctor() {
     }
 
-    @Column(name = "fullname", nullable = false, length = 100)
+    @Column(name = "full_name", nullable = false, length = 100)
     public String getFullName() {
         return fullName;
     }
@@ -35,24 +33,6 @@ public class Doctor extends Base {
 
     public void setSpecialization(String specialization) {
         this.specialization = specialization;
-    }
-
-    @Column(name = "phone", length = 20, unique = true)
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    @Column(name = "email", length = 100, unique = true)
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     @Column(name = "unique_code", length = 7, nullable = false, unique = true)
@@ -88,8 +68,6 @@ public class Doctor extends Base {
                 "id=" + id +
                 ", fullName='" + fullName + '\'' +
                 ", specialization='" + specialization + '\'' +
-                ", phone='" + phone + '\'' +
-                ", email='" + email + '\'' +
                 ", uniqueCode='" + uniqueCode + '\'' +
                 '}';
     }

@@ -1,19 +1,18 @@
 package com.example.diplom.models;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "patients")
-public class Patient extends Base{
+public class Patient extends User {
 
 
-    private String name;
+    private String fullName;
     private LocalDate birthDate;
-    private String phone;
-    private String email;
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
     private Set<Visit> visits = new HashSet<>();
 
@@ -22,40 +21,22 @@ public class Patient extends Base{
     }
 
 
-    @Column(name="name", nullable = false, length = 100)
-    public String getName() {
-        return name;
+    @Column(name = "full_name", nullable = false, length = 100)
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
-    @Column(name="birth_date")
+    @Column(name = "birth_date")
     public LocalDate getBirthDate() {
         return birthDate;
     }
 
     public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
-    }
-
-    @Column(name="phone", length=20, unique=true)
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    @Column(name="email", length=100, unique=true)
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -80,10 +61,8 @@ public class Patient extends Base{
     public String toString() {
         return "Patient{" +
                 "id=" + id +
-                ", name='" + name + '\'' +
+                ", name='" + fullName + '\'' +
                 ", birthDate=" + birthDate +
-                ", phone='" + phone + '\'' +
-                ", email='" + email + '\'' +
                 '}';
     }
 }

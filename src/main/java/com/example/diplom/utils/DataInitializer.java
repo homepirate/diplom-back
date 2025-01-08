@@ -4,6 +4,7 @@ import com.example.diplom.models.*;
 import com.example.diplom.repositories.*;
 import com.github.javafaker.Faker;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-//@Component
+@Component
 public class DataInitializer {
 
     private final DoctorRepository doctorRepository;
@@ -23,11 +24,13 @@ public class DataInitializer {
     private final DoctorPatientRepository doctorPatientRepository;
     private final VisitServiceRepository visitServiceRepository;
     private final Faker faker;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
     public DataInitializer(DoctorRepository doctorRepository, PatientRepository patientRepository,
                            VisitRepository visitRepository, ServiceRepository serviceRepository,
-                           AttachmentRepository attachmentRepository, DoctorPatientRepository doctorPatientRepository, VisitServiceRepository visitServiceRepository) {
+                           AttachmentRepository attachmentRepository, DoctorPatientRepository doctorPatientRepository, VisitServiceRepository visitServiceRepository,
+                           PasswordEncoder passwordEncoder) {
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
         this.visitRepository = visitRepository;
@@ -35,6 +38,7 @@ public class DataInitializer {
         this.attachmentRepository = attachmentRepository;
         this.doctorPatientRepository = doctorPatientRepository;
         this.visitServiceRepository = visitServiceRepository;
+        this.passwordEncoder = passwordEncoder;
         this.faker = new Faker();
     }
 
@@ -53,47 +57,31 @@ public class DataInitializer {
         for (int i = 0; i < 10; i++) {
             Doctor doctor = new Doctor();
             doctor.setFullName(faker.name().fullName());
-            doctor.setSpecialization(faker.job().title());
+            doctor.setSpecialization(faker.job().field());
             doctor.setEmail(faker.internet().emailAddress());
+            doctor.setPhone("8" + faker.number().digits(10));
 
+            doctor.setPassword(passwordEncoder.encode("password"));
+            doctor.setRole("ROLE_DOCTOR");
 
-            String uniqueCode = faker.idNumber().valid();
-            if (uniqueCode.length() > 7) {
-                uniqueCode = uniqueCode.substring(0, 7);
-            }
+            String uniqueCode = faker.number().digits(7);
             doctor.setUniqueCode(uniqueCode);
-
-
-            String phone = "8" + faker.number().digits(10);
-            doctor.setPhone(phone);
 
             doctorRepository.save(doctor);
         }
     }
 
-
     private void populatePatients() {
         for (int i = 0; i < 100; i++) {
             Patient patient = new Patient();
-            patient.setName(faker.name().fullName());
+            patient.setFullName(faker.name().fullName());
             patient.setBirthDate(faker.date().birthday(18, 80).toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-            String phone = "8" + faker.number().digits(10);
-            patient.setPhone(phone);
             patient.setEmail(faker.internet().emailAddress());
-            patientRepository.save(patient);
-        }
-    }
+            patient.setPhone("8" + faker.number().digits(10));
+            patient.setPassword(passwordEncoder.encode("password"));
+            patient.setRole("ROLE_PATIENT");
 
-    private void populateVisits() {
-        Set<Patient> patients = new HashSet<>(patientRepository.findAll());
-        Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-        for (int i = 0; i < 50; i++) {
-            Visit visit = new Visit();
-            visit.setPatient(faker.random().nextBoolean() ? patients.stream().findAny().get() : patients.stream().skip(faker.number().numberBetween(0, 100)).findFirst().get());
-            visit.setDoctor(faker.random().nextBoolean() ? doctors.stream().findAny().get() : doctors.stream().skip(faker.number().numberBetween(0, 10)).findFirst().get());
-            visit.setVisitDate(LocalDateTime.now().minusDays(faker.number().numberBetween(0, 365)));
-            visit.setNotes(faker.lorem().sentence());
-            visitRepository.save(visit);
+            patientRepository.save(patient);
         }
     }
 
@@ -102,7 +90,7 @@ public class DataInitializer {
         for (Doctor doctor : doctors) {
             for (int i = 0; i < 3; i++) {
                 Service service = new Service();
-                service.setName(faker.company().bs());
+                service.setName(faker.company().buzzword());
                 service.setPrice(BigDecimal.valueOf(faker.number().randomDouble(2, 50, 500)));
                 service.setDoctor(doctor);
                 serviceRepository.save(service);
@@ -110,6 +98,18 @@ public class DataInitializer {
         }
     }
 
+    private void populateVisits() {
+        Set<Patient> patients = new HashSet<>(patientRepository.findAll());
+        Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
+        for (int i = 0; i < 50; i++) {
+            Visit visit = new Visit();
+            visit.setPatient(patients.stream().skip(faker.number().numberBetween(0, patients.size())).findFirst().orElse(null));
+            visit.setDoctor(doctors.stream().skip(faker.number().numberBetween(0, doctors.size())).findFirst().orElse(null));
+            visit.setVisitDate(LocalDateTime.now().minusDays(faker.number().numberBetween(0, 365)));
+            visit.setNotes(faker.lorem().sentence());
+            visitRepository.save(visit);
+        }
+    }
 
     private void populateAttachments() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
@@ -138,9 +138,8 @@ public class DataInitializer {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
         Set<Service> services = new HashSet<>(serviceRepository.findAll());
         for (Visit visit : visits) {
-
             for (int i = 0; i < 2; i++) {
-                Service service = faker.random().nextBoolean() ? services.stream().findAny().get() : services.stream().skip(faker.number().numberBetween(0, services.size())).findFirst().get();
+                Service service = services.stream().skip(faker.number().numberBetween(0, services.size())).findFirst().orElse(null);
                 VisitService visitService = new VisitService();
                 visitService.setVisit(visit);
                 visitService.setService(service);
@@ -149,4 +148,3 @@ public class DataInitializer {
         }
     }
 }
-
