@@ -4,6 +4,7 @@ import com.example.diplom.controllers.RR.AuthResponse;
 import com.example.diplom.controllers.RR.LoginRequest;
 import com.example.diplom.utils.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,8 +32,8 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        System.out.println("Login request received for: " + loginRequest.email());
         try {
-
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequest.email(),
@@ -41,9 +42,12 @@ public class AuthController {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
             String token = jwtTokenProvider.generateToken(authentication);
-            return ResponseEntity.ok(new AuthResponse(token));
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentLength(token.length());
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .body(new AuthResponse(token));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
         }
