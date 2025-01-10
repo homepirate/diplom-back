@@ -25,11 +25,9 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     public void registerDoctor(Doctor doctor) {
         doctor.setPassword(passwordEncoder.encode(doctor.getPassword()));
-
         doctor.setRole("ROLE_DOCTOR");
         String uniqueCode = String.valueOf(new Random().nextInt(8999999) + 1000000);
         doctor.setUniqueCode(uniqueCode);
-
         doctorRepository.save(doctor);
     }
 }
