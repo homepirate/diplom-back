@@ -1,7 +1,7 @@
 package com.example.diplom.services;
 
-import com.example.diplom.models.Doctor;
+import com.example.diplom.controllers.RR.DoctorRegisterRequest;
 
 public interface DoctorService {
-    void registerDoctor(Doctor doctor);
+    void registerDoctor(DoctorRegisterRequest doctor);
 }

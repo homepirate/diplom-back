@@ -3,6 +3,7 @@ package com.example.diplom.controllers;
 import com.example.diplom.controllers.RR.AuthResponse;
 import com.example.diplom.controllers.RR.LoginRequest;
 import com.example.diplom.utils.JwtTokenProvider;
+import com.example.diplom.exceptions.StatusResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -11,15 +12,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
-
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
@@ -43,14 +40,20 @@ public class AuthController {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String token = jwtTokenProvider.generateToken(authentication);
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentLength(token.length());
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
-                    .body(new AuthResponse(token));
+
+            AuthResponse authResponse = new AuthResponse(
+                    "SUCCESS",
+                    "Authentication successful",
+                    token
+            );
+
+            return ResponseEntity.status(HttpStatus.OK).body(authResponse);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+            StatusResponse errorResponse = new StatusResponse(
+                    "UNAUTHORIZED",
+                    "Invalid credentials"
+            );
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
         }
     }
 }
-

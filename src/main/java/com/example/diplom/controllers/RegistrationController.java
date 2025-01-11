@@ -1,10 +1,16 @@
 package com.example.diplom.controllers;
 
+import com.example.diplom.controllers.RR.DoctorRegisterRequest;
+import com.example.diplom.controllers.RR.PatientRegisterRequest;
+import com.example.diplom.controllers.RR.RegResponse;
 import com.example.diplom.models.Doctor;
 import com.example.diplom.models.Patient;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.PatientService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,14 +27,17 @@ public class RegistrationController {
     }
 
     @PostMapping("/doctor")
-    public String registerDoctor(@RequestBody Doctor doctor) {
+    public ResponseEntity<RegResponse> registerDoctor(@Valid @RequestBody DoctorRegisterRequest doctor) {
         doctorService.registerDoctor(doctor);
-        return "Doctor registered successfully!";
+        RegResponse response = new RegResponse("CREATED", "Doctor registered successfully!");
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PostMapping("/patient")
-    public String registerPatient(@RequestBody Patient patient) {
+    public ResponseEntity<RegResponse> registerPatient(@Valid @RequestBody PatientRegisterRequest patient) {
         patientService.registerPatient(patient);
-        return "Patient registered successfully!";
+        RegResponse response = new RegResponse("CREATED", "Patient registered successfully!");
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
+
 }
