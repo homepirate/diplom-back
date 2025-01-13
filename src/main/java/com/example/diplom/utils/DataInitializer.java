@@ -23,6 +23,8 @@ public class DataInitializer {
     private final AttachmentRepository attachmentRepository;
     private final DoctorPatientRepository doctorPatientRepository;
     private final VisitServiceRepository visitServiceRepository;
+    private final SpecializationRepository specializationRepository;
+
     private final Faker faker;
     private final PasswordEncoder passwordEncoder;
 
@@ -30,6 +32,7 @@ public class DataInitializer {
     public DataInitializer(DoctorRepository doctorRepository, PatientRepository patientRepository,
                            VisitRepository visitRepository, ServiceRepository serviceRepository,
                            AttachmentRepository attachmentRepository, DoctorPatientRepository doctorPatientRepository, VisitServiceRepository visitServiceRepository,
+                           SpecializationRepository specializationRepository,
                            PasswordEncoder passwordEncoder) {
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
@@ -38,6 +41,7 @@ public class DataInitializer {
         this.attachmentRepository = attachmentRepository;
         this.doctorPatientRepository = doctorPatientRepository;
         this.visitServiceRepository = visitServiceRepository;
+        this.specializationRepository = specializationRepository;
         this.passwordEncoder = passwordEncoder;
         this.faker = new Faker();
     }
@@ -53,20 +57,32 @@ public class DataInitializer {
         populateVisitServices();
     }
 
+    private void populateSpecializations() {
+        String[] specializations = {"Cardiology", "Neurology", "Orthopedics", "Dermatology", "Pediatrics"};
+        for (String name : specializations) {
+            Specialization specialization = new Specialization(name);
+            specializationRepository.save(specialization);
+        }
+    }
+
     private void populateDoctors() {
+        populateSpecializations();
         for (int i = 0; i < 10; i++) {
             Doctor doctor = new Doctor();
             doctor.setFullName(faker.name().fullName());
-            doctor.setSpecialization(faker.job().field());
             doctor.setEmail(faker.internet().emailAddress());
             doctor.setPhone("8" + faker.number().digits(10));
-
             doctor.setPassword(passwordEncoder.encode("password"));
             doctor.setRole("ROLE_DOCTOR");
+            doctor.setUniqueCode(faker.number().digits(7));
 
-            String uniqueCode = faker.number().digits(7);
-            doctor.setUniqueCode(uniqueCode);
+            Specialization specialization = specializationRepository.findAll()
+                    .stream()
+                    .skip(faker.number().numberBetween(0, (int) specializationRepository.count()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No specializations found"));
 
+            doctor.setSpecialization(specialization);
             doctorRepository.save(doctor);
         }
     }
@@ -80,7 +96,6 @@ public class DataInitializer {
             patient.setPhone("8" + faker.number().digits(10));
             patient.setPassword(passwordEncoder.encode("password"));
             patient.setRole("ROLE_PATIENT");
-
             patientRepository.save(patient);
         }
     }
@@ -147,4 +162,6 @@ public class DataInitializer {
             }
         }
     }
+
+
 }

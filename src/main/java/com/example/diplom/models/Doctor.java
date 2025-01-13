@@ -9,13 +9,13 @@ import java.util.Set;
 public class Doctor extends User {
 
     private String fullName;
-    private String specialization;
+    private Specialization specialization;
+    private String specializationName;
     private String uniqueCode;
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
     private Set<Service> services = new HashSet<>();
 
-    public Doctor() {
-    }
+    public Doctor() {}
 
     @Column(name = "full_name", nullable = false, length = 100)
     public String getFullName() {
@@ -26,13 +26,24 @@ public class Doctor extends User {
         this.fullName = fullName;
     }
 
-    @Column(name = "specialization", length = 100)
-    public String getSpecialization() {
+    @ManyToOne
+    @JoinColumn(name = "specialization_id", nullable = false)
+    public Specialization getSpecialization() {
         return specialization;
     }
 
-    public void setSpecialization(String specialization) {
+    public void setSpecialization(Specialization specialization) {
         this.specialization = specialization;
+        this.specializationName = specialization != null ? specialization.getName() : null;
+    }
+
+    @Column(name = "specialization_name", nullable = false, length = 100)
+    public String getSpecializationName() {
+        return specializationName;
+    }
+
+    public void setSpecializationName(String specializationName) {
+        this.specializationName = specializationName;
     }
 
     @Column(name = "unique_code", length = 7, nullable = false, unique = true)
@@ -67,8 +78,11 @@ public class Doctor extends User {
         return "Doctor{" +
                 "id=" + id +
                 ", fullName='" + fullName + '\'' +
-                ", specialization='" + specialization + '\'' +
+                ", specialization=" + (specialization != null ? specialization.getName() : "null") +
+                ", specializationName='" + specializationName + '\'' +
                 ", uniqueCode='" + uniqueCode + '\'' +
                 '}';
     }
 }
+
+

@@ -1,11 +1,12 @@
 package com.example.diplom.services.dtos;
+import com.example.diplom.models.Specialization;
 
-public class DoctorRegistrationDto extends BaseRegistrationDto{
+public class DoctorRegistrationDto extends BaseRegistrationDto {
 
-    private String specialization;
+    private Specialization specialization;
     private String uniqueCode;
 
-    public DoctorRegistrationDto(String password, String role, String email, String phone, String fullName, String specialization, String uniqueCode) {
+    public DoctorRegistrationDto(String password, String role, String email, String phone, String fullName, Specialization specialization, String uniqueCode) {
         super(password, role, email, phone, fullName);
         this.specialization = specialization;
         this.uniqueCode = uniqueCode;
@@ -14,11 +15,11 @@ public class DoctorRegistrationDto extends BaseRegistrationDto{
     public DoctorRegistrationDto() {
     }
 
-    public String getSpecialization() {
+    public Specialization getSpecialization() {
         return specialization;
     }
 
-    public void setSpecialization(String specialization) {
+    public void setSpecialization(Specialization specialization) {
         this.specialization = specialization;
     }
 
@@ -30,3 +31,4 @@ public class DoctorRegistrationDto extends BaseRegistrationDto{
         this.uniqueCode = uniqueCode;
     }
 }
+

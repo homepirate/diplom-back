@@ -18,7 +18,7 @@ public record DoctorRegisterRequest(
         @NotBlank(message = "Имя не должно быть пустым")
         String fullName,
 
-        @NotBlank(message = "Специализация не должнв быть пустой")
+        @NotBlank(message = "Специализация не должна быть пустой")
         String specialization
 ) {
 }
