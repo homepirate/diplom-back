@@ -23,7 +23,7 @@ public record PatientRegisterRequest(
         String fullName,
 
         @NotNull
-        @Past(message = "В прошлом надо рождаться")
+        @Past(message = "Неверная дата")
         LocalDate birthDate
 ) {
 }
