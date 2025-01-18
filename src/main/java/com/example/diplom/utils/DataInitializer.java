@@ -72,7 +72,7 @@ public class DataInitializer {
     }
 
     private void populatePatients() {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Patient patient = new Patient();
             patient.setFullName(faker.name().fullName());
             patient.setBirthDate(faker.date().birthday(18, 80).toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());

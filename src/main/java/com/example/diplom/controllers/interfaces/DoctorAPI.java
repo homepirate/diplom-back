@@ -2,6 +2,7 @@ package com.example.diplom.controllers.interfaces;
 
 import com.example.diplom.controllers.RR.DoctorResponse;
 import com.example.diplom.controllers.RR.PatientResponse;
+import com.example.diplom.controllers.RR.VisitDateResponse;
 import com.example.diplom.exceptions.StatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,6 +12,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
 
 @Tag(name = "doctors")
 @ApiResponses({
@@ -24,10 +30,17 @@ import org.springframework.web.bind.annotation.PathVariable;
         @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера",  content =
         @Content(mediaType = "application/json", schema = @Schema(implementation = StatusResponse.class)))
 })
+@RequestMapping("/api/doctors")
 public interface DoctorAPI {
 
         @Operation(summary = "Получить все")
-        @GetMapping(value = "/api/doctors/{page}")
+        @GetMapping(value = "/{page}")
         DoctorResponse getAllDoctors(@PathVariable("page") int page);
+
+        @Operation(summary = "Получить даты и время всех визитов врача")
+        @GetMapping(value = "/{doctorId}/visits/dates")
+        List<VisitDateResponse> getDoctorVisitDates(@PathVariable("doctorId") UUID doctorId);
 }
+
+
 

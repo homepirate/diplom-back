@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 @Tag(name = "patients")
 @ApiResponses({
@@ -23,9 +24,10 @@ import org.springframework.web.bind.annotation.PathVariable;
         @ApiResponse(responseCode = "500", description = "Внутренняя ошибка сервера",  content =
         @Content(mediaType = "application/json", schema = @Schema(implementation = StatusResponse.class)))
 })
+@RequestMapping("/api/patients")
 public interface PatientAPI {
 
         @Operation(summary = "Получить все")
-        @GetMapping(value = "/api/patients/{page}")
+        @GetMapping(value = "/{page}")
         PatientResponse getAllPatients(@PathVariable("page") int page);
 }

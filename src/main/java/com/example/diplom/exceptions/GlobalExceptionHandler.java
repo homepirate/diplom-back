@@ -1,6 +1,5 @@
 package com.example.diplom.exceptions;
 
-import com.example.diplom.exceptions.StatusResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,6 +67,12 @@ public class GlobalExceptionHandler {
         StatusResponse response = new StatusResponse("BAD_REQUEST", errorMessage);
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
 
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<StatusResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        StatusResponse response = new StatusResponse("NOT_FOUND", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
         /**
          * Обработка любых других непредвиденных ошибок.
