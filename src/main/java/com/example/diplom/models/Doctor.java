@@ -32,7 +32,7 @@ public class Doctor extends User {
         return specialization;
     }
 
-    public void setSpecialization(String specialization) {
+    public void setSpecialization(Specialization specialization) {
         this.specialization = specialization;
         this.specializationName = specialization != null ? specialization.getName() : null;
     }
@@ -84,5 +84,3 @@ public class Doctor extends User {
                 '}';
     }
 }
-
-

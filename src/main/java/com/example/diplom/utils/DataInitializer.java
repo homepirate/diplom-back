@@ -70,10 +70,8 @@ public class DataInitializer {
         for (int i = 0; i < 10; i++) {
             Doctor doctor = new Doctor();
             doctor.setFullName(faker.name().fullName());
-            doctor.setSpecialization(faker.job().field());
             doctor.setEmail(faker.internet().emailAddress());
             doctor.setPhone("8" + faker.number().digits(10));
-
             doctor.setPassword(passwordEncoder.encode("password"));
             doctor.setRole("ROLE_DOCTOR");
             doctor.setUniqueCode(faker.number().digits(7));
@@ -98,7 +96,6 @@ public class DataInitializer {
             patient.setPhone("8" + faker.number().digits(10));
             patient.setPassword(passwordEncoder.encode("password"));
             patient.setRole("ROLE_PATIENT");
-
             patientRepository.save(patient);
         }
     }
