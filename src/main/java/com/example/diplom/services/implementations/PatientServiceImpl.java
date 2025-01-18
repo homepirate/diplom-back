@@ -23,7 +23,6 @@ public class PatientServiceImpl implements PatientService {
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
         this.modelMapper = modelMapper;
-
     }
 
     @Override

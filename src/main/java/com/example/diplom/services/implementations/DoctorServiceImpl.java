@@ -4,8 +4,10 @@ package com.example.diplom.services.implementations;
 import com.example.diplom.controllers.RR.DoctorRegisterRequest;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.Doctor;
+import com.example.diplom.models.Specialization;
 import com.example.diplom.repositories.DoctorRepository;
 import com.example.diplom.repositories.VisitRepository;
+import com.example.diplom.repositories.SpecializationRepository;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
 import com.example.diplom.services.dtos.VisitDto;
@@ -15,10 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class DoctorServiceImpl implements DoctorService {
@@ -26,21 +26,26 @@ public class DoctorServiceImpl implements DoctorService {
     private final DoctorRepository doctorRepository;
     private final VisitRepository visitRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SpecializationRepository specializationRepository;
     private final ModelMapper modelMapper;
 
     @Autowired
-    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper) {
+    public DoctorServiceImpl(DoctorRepository doctorRepository, PasswordEncoder passwordEncoder, SpecializationRepository specializationRepository, VisitRepository visitRepository, ModelMapper modelMapper) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.passwordEncoder = passwordEncoder;
+        this.specializationRepository = specializationRepository;
         this.modelMapper = modelMapper;
     }
 
     @Override
     public void registerDoctor(DoctorRegisterRequest doctor) {
+        Specialization specialization = specializationRepository
+                .findByName(doctor.specialization())
+                .orElseThrow(() -> new IllegalArgumentException("Specialization not found: " + doctor.specialization()));
 
         DoctorRegistrationDto doctorDto = new DoctorRegistrationDto(doctor.password(), null, doctor.email(),
-                doctor.phone(), doctor.fullName(), doctor.specialization(), null);
+                doctor.phone(), doctor.fullName(), specialization, null);
 
         doctorDto.setPassword(passwordEncoder.encode(doctorDto.getPassword()));
         doctorDto.setRole("ROLE_DOCTOR");
