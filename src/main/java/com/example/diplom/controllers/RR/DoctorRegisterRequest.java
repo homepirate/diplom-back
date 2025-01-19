@@ -3,6 +3,7 @@ package com.example.diplom.controllers.RR;
 import com.example.diplom.utils.validation.ValidPhone;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import org.hibernate.validator.constraints.Length;
 
 public record DoctorRegisterRequest(
         @NotBlank
@@ -10,6 +11,7 @@ public record DoctorRegisterRequest(
         String email,
 
         @NotBlank(message = "Пароль не должен быть пустым")
+        @Length(min = 6)
         String password,
 
         @ValidPhone
