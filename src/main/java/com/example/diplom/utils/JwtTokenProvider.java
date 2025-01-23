@@ -24,18 +24,17 @@ public class JwtTokenProvider {
     public String generateToken(Authentication authentication, UUID userId) {
         String email = authentication.getName();
         List<String> roles = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority) // Returns "ROLE_DOCTOR"
+                .map(GrantedAuthority::getAuthority)
                 .map(role -> role.startsWith("ROLE_")
-                        ? role.substring(5) // Remove "ROLE_"
+                        ? role.substring(5)
                         : role)
                 .toList();
 
-        int jwtExpirationMs = 86400000; // 1 day expiration
-
+        int jwtExpirationMs = 86400000;
         return Jwts.builder()
                 .claim("roles", roles)
-                .claim("id", userId) // Add user ID
-                .claim("email", email) // Use email instead of subject
+                .claim("id", userId)
+                .claim("email", email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

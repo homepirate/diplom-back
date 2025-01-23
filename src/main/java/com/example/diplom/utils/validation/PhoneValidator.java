@@ -9,13 +9,12 @@ public class PhoneValidator implements ConstraintValidator<ValidPhone, String> {
 
     @Override
     public void initialize(ValidPhone constraintAnnotation) {
-        // Инициализация, если необходимо
     }
 
     @Override
     public boolean isValid(String phone, ConstraintValidatorContext context) {
         if (phone == null) {
-            return false; // Или true, если поле может быть пустым
+            return false;
         }
         return phone.matches(PHONE_REGEX);
     }
