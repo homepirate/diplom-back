@@ -10,10 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,9 +35,6 @@ public interface DoctorAPI {
         DoctorResponse getAllDoctors(@PathVariable("page") int page);
 
         @Operation(summary = "Получить даты и время всех визитов врача")
-        @GetMapping(value = "/{doctorId}/visits/dates")
-        List<VisitDateResponse> getDoctorVisitDates(@PathVariable("doctorId") UUID doctorId);
+        @GetMapping(value = "/visits/dates")
+        List<VisitDateResponse> getDoctorVisitDates(@RequestParam("doctorId") UUID doctorId);
 }
-
-
-

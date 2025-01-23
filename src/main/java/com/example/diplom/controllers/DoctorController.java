@@ -6,6 +6,7 @@ import com.example.diplom.controllers.interfaces.DoctorAPI;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.VisitDto;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -27,9 +28,8 @@ public class DoctorController implements DoctorAPI {
     }
 
     @Override
-    public List<VisitDateResponse> getDoctorVisitDates(UUID doctorId) {
-       List<VisitDto> visits = doctorService.getDoctorVisitDates(doctorId);
-
+    public List<VisitDateResponse> getDoctorVisitDates(@RequestParam("doctorId") UUID doctorId) {
+        List<VisitDto> visits = doctorService.getDoctorVisitDates(doctorId);
         return visits.stream()
                 .map(visit -> new VisitDateResponse(visit.getId(), visit.getVisitDate()))
                 .collect(Collectors.toList());

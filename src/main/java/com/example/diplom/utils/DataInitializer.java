@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-@Component
+//@Component
 public class DataInitializer {
 
     private final DoctorRepository doctorRepository;
@@ -46,7 +46,7 @@ public class DataInitializer {
         this.faker = new Faker();
     }
 
-    @PostConstruct
+    //@PostConstruct
     public void init() {
         populateDoctors();
         populatePatients();
