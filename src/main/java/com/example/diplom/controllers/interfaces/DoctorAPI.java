@@ -1,5 +1,6 @@
 package com.example.diplom.controllers.interfaces;
 
+import com.example.diplom.controllers.RR.CreateServiceRequest;
 import com.example.diplom.controllers.RR.DoctorResponse;
 import com.example.diplom.controllers.RR.PatientResponse;
 import com.example.diplom.controllers.RR.VisitDateResponse;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,4 +39,9 @@ public interface DoctorAPI {
         @Operation(summary = "Получить даты и время всех визитов врача")
         @GetMapping(value = "/visits/dates")
         List<VisitDateResponse> getDoctorVisitDates();
+
+        @Operation(summary = "Создать услугу для доктора")
+        @PostMapping(value = "/services")
+        ResponseEntity<?> createService(@RequestBody CreateServiceRequest serviceRequest);
+
 }

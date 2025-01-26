@@ -1,11 +1,13 @@
 package com.example.diplom.services.implementations;
 
 
+import com.example.diplom.controllers.RR.CreateServiceRequest;
 import com.example.diplom.controllers.RR.DoctorRegisterRequest;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.Doctor;
 import com.example.diplom.models.Specialization;
 import com.example.diplom.repositories.DoctorRepository;
+import com.example.diplom.repositories.ServiceRepository;
 import com.example.diplom.repositories.SpecializationRepository;
 import com.example.diplom.repositories.VisitRepository;
 import com.example.diplom.services.DoctorService;
@@ -13,6 +15,7 @@ import com.example.diplom.services.dtos.DoctorRegistrationDto;
 import com.example.diplom.services.dtos.VisitDto;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,14 +29,15 @@ public class DoctorServiceImpl implements DoctorService {
     private final DoctorRepository doctorRepository;
     private final VisitRepository visitRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ServiceRepository serviceRepository;
     private final SpecializationRepository specializationRepository;
     private final ModelMapper modelMapper;
 
-    @Autowired
-    public DoctorServiceImpl(DoctorRepository doctorRepository, PasswordEncoder passwordEncoder, SpecializationRepository specializationRepository, VisitRepository visitRepository, ModelMapper modelMapper) {
+    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, PasswordEncoder passwordEncoder, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, ModelMapper modelMapper) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.passwordEncoder = passwordEncoder;
+        this.serviceRepository = serviceRepository;
         this.specializationRepository = specializationRepository;
         this.modelMapper = modelMapper;
     }
@@ -64,6 +68,21 @@ public class DoctorServiceImpl implements DoctorService {
                 .map(visit -> modelMapper.map(visit, VisitDto.class))
                 .toList();
         return visitDtos;
+    }
+
+    @Override
+    public void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+
+        com.example.diplom.models.Service service = new com.example.diplom.models.Service();
+        service.setName(serviceRequest.name());
+        service.setPrice(serviceRequest.price());
+        service.setDoctor(doctor);
+
+        serviceRepository.save(service);
+
+
     }
 }
 
