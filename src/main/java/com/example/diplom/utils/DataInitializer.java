@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-//@Component
+@Component
 public class DataInitializer {
 
     private final DoctorRepository doctorRepository;
@@ -46,7 +46,7 @@ public class DataInitializer {
         this.faker = new Faker();
     }
 
-    //@PostConstruct
+    @PostConstruct
     public void init() {
         populateDoctors();
         populatePatients();
@@ -116,13 +116,35 @@ public class DataInitializer {
     private void populateVisits() {
         Set<Patient> patients = new HashSet<>(patientRepository.findAll());
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-        for (int i = 0; i < 50; i++) {
-            Visit visit = new Visit();
-            visit.setPatient(patients.stream().skip(faker.number().numberBetween(0, patients.size())).findFirst().orElse(null));
-            visit.setDoctor(doctors.stream().skip(faker.number().numberBetween(0, doctors.size())).findFirst().orElse(null));
-            visit.setVisitDate(LocalDateTime.now().minusDays(faker.number().numberBetween(0, 365)));
-            visit.setNotes(faker.lorem().sentence());
-            visitRepository.save(visit);
+
+        LocalDateTime startDate = LocalDateTime.now().minusMonths(1); // Начало месяца
+        LocalDateTime endDate = LocalDateTime.now(); // Сегодняшняя дата
+
+        for (Doctor doctor : doctors) {
+            LocalDateTime currentDate = startDate;
+
+            // Проходим по каждому дню текущего месяца
+            while (currentDate.isBefore(endDate)) {
+                // Генерируем минимум 8 визитов для доктора каждый день
+                for (int i = 0; i < 8; i++) {
+                    Visit visit = new Visit();
+
+                    // Случайный пациент из списка
+                    Patient patient = patients.stream()
+                            .skip(faker.number().numberBetween(0, patients.size()))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (patient == null) continue; // Если пациентов нет, пропускаем
+
+                    visit.setDoctor(doctor);
+                    visit.setPatient(patient);
+                    visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12))); // Генерация времени на случайных интервалах
+                    visit.setNotes(faker.lorem().sentence());
+                    visitRepository.save(visit);
+                }
+                currentDate = currentDate.plusDays(1); // Переключаемся на следующий день
+            }
         }
     }
 

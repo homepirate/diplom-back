@@ -8,6 +8,9 @@ import com.example.diplom.services.dtos.VisitDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+
 
 import java.util.List;
 import java.util.UUID;
@@ -28,10 +31,17 @@ public class DoctorController implements DoctorAPI {
     }
 
     @Override
-    public List<VisitDateResponse> getDoctorVisitDates(@RequestParam("doctorId") UUID doctorId) {
-        List<VisitDto> visits = doctorService.getDoctorVisitDates(doctorId);
+    public List<VisitDateResponse> getDoctorVisitDates() {
+
+        List<VisitDto> visits = doctorService.getDoctorVisitDates(getDoctorId());
         return visits.stream()
                 .map(visit -> new VisitDateResponse(visit.getId(), visit.getVisitDate()))
                 .collect(Collectors.toList());
+    }
+
+    UUID getDoctorId(){
+        Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UUID doctorId = UUID.fromString(jwt.getClaim("id"));
+        return doctorId;
     }
 }

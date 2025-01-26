@@ -36,5 +36,5 @@ public interface DoctorAPI {
 
         @Operation(summary = "Получить даты и время всех визитов врача")
         @GetMapping(value = "/visits/dates")
-        List<VisitDateResponse> getDoctorVisitDates(@RequestParam("doctorId") UUID doctorId);
+        List<VisitDateResponse> getDoctorVisitDates();
 }
