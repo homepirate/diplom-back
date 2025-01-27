@@ -1,9 +1,6 @@
 package com.example.diplom.controllers.interfaces;
 
-import com.example.diplom.controllers.RR.CreateServiceRequest;
-import com.example.diplom.controllers.RR.DoctorResponse;
-import com.example.diplom.controllers.RR.PatientResponse;
-import com.example.diplom.controllers.RR.VisitDateResponse;
+import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.StatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -43,5 +40,10 @@ public interface DoctorAPI {
         @Operation(summary = "Создать услугу для доктора")
         @PostMapping(value = "/services")
         ResponseEntity<?> createService(@RequestBody CreateServiceRequest serviceRequest);
+
+        @Operation(summary = "Создать визит для пациента")
+        @PostMapping(value = "/visits")
+        ResponseEntity<CreateVisitResponse> createVisit(@RequestBody CreateVisitRequest visitRequest);
+
 
 }
