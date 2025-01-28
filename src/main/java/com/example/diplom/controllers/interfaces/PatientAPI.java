@@ -1,5 +1,8 @@
 package com.example.diplom.controllers.interfaces;
 
+import com.example.diplom.controllers.RR.AddAttachmentRequest;
+import com.example.diplom.controllers.RR.CreateVisitRequest;
+import com.example.diplom.controllers.RR.CreateVisitResponse;
 import com.example.diplom.controllers.RR.PatientResponse;
 import com.example.diplom.exceptions.StatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,9 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "patients")
 @ApiResponses({
@@ -30,4 +32,8 @@ public interface PatientAPI {
         @Operation(summary = "Получить все")
         @GetMapping(value = "/{page}")
         PatientResponse getAllPatients(@PathVariable("page") int page);
+
+        @Operation(summary = "Добавить вложение в визит")
+        @PostMapping(value = "/add-attachment", consumes = {"multipart/form-data"})
+        ResponseEntity<?> AddAttachment(@ModelAttribute AddAttachmentRequest addAttachmentRequest);
 }
