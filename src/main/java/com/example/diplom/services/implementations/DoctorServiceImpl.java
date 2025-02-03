@@ -4,6 +4,7 @@ package com.example.diplom.services.implementations;
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
+import com.example.diplom.notif.NotificationService;
 import com.example.diplom.repositories.*;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
@@ -28,7 +29,10 @@ public class DoctorServiceImpl implements DoctorService {
     private final ModelMapper modelMapper;
     private VisitServiceRepository visitServiceRepository;
 
-    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, PasswordEncoder passwordEncoder, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, ModelMapper modelMapper, VisitServiceRepository visitServiceRepository) {
+    private final NotificationService notificationService;
+
+
+    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, PasswordEncoder passwordEncoder, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, ModelMapper modelMapper, VisitServiceRepository visitServiceRepository, NotificationService notificationService) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.passwordEncoder = passwordEncoder;
@@ -37,6 +41,7 @@ public class DoctorServiceImpl implements DoctorService {
         this.patientRepository = patientRepository;
         this.modelMapper = modelMapper;
         this.visitServiceRepository = visitServiceRepository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -100,6 +105,12 @@ public class DoctorServiceImpl implements DoctorService {
 
         // Сохранить визит
         Visit savedVisit = visitRepository.save(visit);
+
+
+        notificationService.sendVisitCreatedNotification(
+                patient.getEmail(),
+                savedVisit.getVisitDate().toString()
+        );
 
         // Если услуги были переданы, обработать добавление связей через отдельный метод
         if (visitRequest.services() != null && !visitRequest.services().isEmpty()) {
