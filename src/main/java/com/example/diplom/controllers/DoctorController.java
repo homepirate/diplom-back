@@ -49,6 +49,13 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.status(HttpStatus.CREATED).body(createServiceResponse);
 
     }
+    @Override
+    public ResponseEntity<List<ServiceResponse>> getDoctorServices() {
+        UUID doctorId = getDoctorId();
+        List<ServiceResponse> services = doctorService.getDoctorServices(doctorId);
+        return ResponseEntity.ok(services);
+    }
+
 
     @Override
     public ResponseEntity<CreateVisitResponse> createVisit(@RequestBody CreateVisitRequest visitRequest) {

@@ -130,6 +130,16 @@ public class DoctorServiceImpl implements DoctorService {
             visitServiceRepository.save(visitService); // Сохранить связь
         }
     }
+    @Override
+    public List<ServiceResponse> getDoctorServices(UUID doctorId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+
+        return serviceRepository.findByDoctorId(doctorId).stream()
+                .map(service -> new ServiceResponse(service.getName(), service.getPrice()))
+                .toList();
+    }
+
 
 }
 

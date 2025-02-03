@@ -41,6 +41,11 @@ public interface DoctorAPI {
         @PostMapping(value = "/services")
         ResponseEntity<?> createService(@RequestBody CreateServiceRequest serviceRequest);
 
+        @Operation(summary = "Получить все услуги для доктора")
+        @GetMapping(value = "/services")
+        ResponseEntity<List<ServiceResponse>> getDoctorServices();
+
+
         @Operation(summary = "Создать визит для пациента")
         @PostMapping(value = "/visits")
         ResponseEntity<CreateVisitResponse> createVisit(@RequestBody CreateVisitRequest visitRequest);

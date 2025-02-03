@@ -1,9 +1,6 @@
 package com.example.diplom.services;
 
-import com.example.diplom.controllers.RR.CreateServiceRequest;
-import com.example.diplom.controllers.RR.CreateVisitRequest;
-import com.example.diplom.controllers.RR.CreateVisitResponse;
-import com.example.diplom.controllers.RR.DoctorRegisterRequest;
+import com.example.diplom.controllers.RR.*;
 import com.example.diplom.services.dtos.VisitDto;
 
 import java.util.List;
@@ -16,5 +13,7 @@ public interface DoctorService {
 
     void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest);
     CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest);
+    List<ServiceResponse> getDoctorServices(UUID doctorId);
+
 
 }
