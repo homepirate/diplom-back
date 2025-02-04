@@ -1,4 +1,8 @@
 package com.example.diplom.controllers.RR;
 
-public record PatientResponse() {
-}
+import java.time.LocalDate;
+
+public record PatientResponse(
+        String fullName,
+        LocalDate birthDate
+) {}

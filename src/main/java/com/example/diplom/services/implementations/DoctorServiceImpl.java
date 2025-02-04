@@ -13,7 +13,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
@@ -62,7 +64,7 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     @Override
-    public List<VisitDto> getDoctorVisitDates(UUID doctorId){
+    public List<VisitDto> getDoctorVisitDates(UUID doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
 
@@ -77,14 +79,20 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
 
+        // Check if the doctor already has a service with the same name
+        Optional<com.example.diplom.models.Service> existingService = serviceRepository.findByDoctorIdAndName(doctorId, serviceRequest.name());
+        if (existingService.isPresent()) {
+            throw new IllegalArgumentException("A service with this name already exists for this doctor.");
+        }
+
         com.example.diplom.models.Service service = new com.example.diplom.models.Service();
         service.setName(serviceRequest.name());
         service.setPrice(serviceRequest.price());
         service.setDoctor(doctor);
 
         serviceRepository.save(service);
-
     }
+
 
     @Override
     public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
@@ -141,6 +149,7 @@ public class DoctorServiceImpl implements DoctorService {
             visitServiceRepository.save(visitService); // Сохранить связь
         }
     }
+
     @Override
     public List<ServiceResponse> getDoctorServices(UUID doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
@@ -150,6 +159,36 @@ public class DoctorServiceImpl implements DoctorService {
                 .map(service -> new ServiceResponse(service.getName(), service.getPrice()))
                 .toList();
     }
+
+    @Override
+    public void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest) {
+        if (updateServiceRequest.price() == null || updateServiceRequest.price().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price must be a positive value.");
+        }
+
+        // Find the service by doctor ID and name
+        com.example.diplom.models.Service service = serviceRepository.findByDoctorIdAndName(doctorId, updateServiceRequest.name())
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found with name '" + updateServiceRequest.name() + "' for this doctor."));
+
+        // Update the price
+        service.setPrice(updateServiceRequest.price());
+
+        // Save the updated service
+        serviceRepository.save(service);
+    }
+    @Override
+    public List<PatientResponse> getDoctorPatients(UUID doctorId) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+
+        return doctor.getDoctorPatients().stream()
+                .map(doctorPatient -> new PatientResponse(
+                        doctorPatient.getPatient().getFullName(),
+                        doctorPatient.getPatient().getBirthDate()
+                ))
+                .toList();
+    }
+
 
 
 }

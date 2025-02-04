@@ -2,6 +2,7 @@ package com.example.diplom.controllers;
 
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.controllers.interfaces.DoctorAPI;
+import com.example.diplom.exceptions.StatusResponse;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.VisitDto;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -63,6 +65,20 @@ public class DoctorController implements DoctorAPI {
         CreateVisitResponse response = doctorService.createVisit(doctorId, visitRequest);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    @Override
+    public ResponseEntity<StatusResponse> updateServicePrice(
+            @RequestBody UpdateServiceRequest updateServiceRequest) {  // New price
+        UUID doctorId = getDoctorId();
+        doctorService.updateServicePrice(doctorId, updateServiceRequest);
+
+        return ResponseEntity.ok(new StatusResponse("UPDATED", "Service price updated successfully"));
+    }
+
+    public ResponseEntity<List<PatientResponse>> getDoctorPatients() {
+        UUID doctorId = getDoctorId();
+        List<PatientResponse> patients = doctorService.getDoctorPatients(doctorId);
+        return ResponseEntity.ok(patients);
     }
 
     UUID getDoctorId(){

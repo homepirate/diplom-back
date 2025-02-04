@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "services")
+@Table(name = "services", uniqueConstraints = @UniqueConstraint(columnNames = {"doctor_id", "name"}))
 public class Service extends Base {
 
     private String name;

@@ -102,16 +102,29 @@ public class DataInitializer {
 
     private void populateServices() {
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
+
         for (Doctor doctor : doctors) {
+            Set<String> existingServiceNames = new HashSet<>();
+
             for (int i = 0; i < 3; i++) {
+                String serviceName;
+
+                do {
+                    serviceName = faker.company().buzzword();
+                } while (existingServiceNames.contains(serviceName) || serviceRepository.findByDoctorIdAndName(doctor.getId(), serviceName).isPresent());
+
+                existingServiceNames.add(serviceName);
+
                 Service service = new Service();
-                service.setName(faker.company().buzzword());
+                service.setName(serviceName);
                 service.setPrice(BigDecimal.valueOf(faker.number().randomDouble(2, 50, 500)));
                 service.setDoctor(doctor);
+
                 serviceRepository.save(service);
             }
         }
     }
+
 
     private void populateVisits() {
         Set<Patient> patients = new HashSet<>(patientRepository.findAll());
