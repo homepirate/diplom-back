@@ -36,12 +36,18 @@ public class DoctorController implements DoctorAPI {
 
     @Override
     public List<VisitDateResponse> getDoctorVisitDates() {
-
         List<VisitDto> visits = doctorService.getDoctorVisitDates(getDoctorId());
+
         return visits.stream()
-                .map(visit -> new VisitDateResponse(visit.getId(), visit.getVisitDate()))
+                .map(visit -> new VisitDateResponse(
+                        visit.getId(),
+                        visit.getVisitDate(),
+                        visit.getPatient() != null ? visit.getPatient().getFullName() : "Unknown",
+                        visit.isFinished()
+                ))
                 .collect(Collectors.toList());
     }
+
 
     @Override
     public ResponseEntity<?>  createService(CreateServiceRequest serviceRequest) {

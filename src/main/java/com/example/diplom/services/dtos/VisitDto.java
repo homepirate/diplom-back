@@ -1,10 +1,6 @@
 package com.example.diplom.services.dtos;
 
-import com.example.diplom.models.Attachment;
-import com.example.diplom.models.Doctor;
-import com.example.diplom.models.Patient;
-import com.example.diplom.models.VisitService;
-
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -13,16 +9,17 @@ import java.util.UUID;
 public class VisitDto {
 
     private UUID id;
-
     private PatientDto patient;
     private DoctorDto doctor;
     private LocalDateTime visitDate;
     private String notes;
     private Set<VisitServiceDto> visitServices = new HashSet<>();
     private AttachmentDto attachment;
+    private boolean isFinished;
+    private BigDecimal totalCost;
 
-
-    public VisitDto(UUID id, PatientDto patient, DoctorDto doctor, LocalDateTime visitDate, String notes, Set<VisitServiceDto> visitServices, AttachmentDto attachment) {
+    public VisitDto(UUID id, PatientDto patient, DoctorDto doctor, LocalDateTime visitDate, String notes,
+                    Set<VisitServiceDto> visitServices, AttachmentDto attachment, boolean isFinished, BigDecimal totalCost) {
         this.id = id;
         this.patient = patient;
         this.doctor = doctor;
@@ -30,11 +27,12 @@ public class VisitDto {
         this.notes = notes;
         this.visitServices = visitServices;
         this.attachment = attachment;
+        this.isFinished = isFinished;
+        this.totalCost = totalCost;
     }
 
     public VisitDto() {
     }
-
 
     public UUID getId() {
         return id;
@@ -90,5 +88,21 @@ public class VisitDto {
 
     public void setAttachment(AttachmentDto attachment) {
         this.attachment = attachment;
+    }
+
+    public boolean isFinished() {
+        return isFinished;
+    }
+
+    public void setFinished(boolean finished) {
+        isFinished = finished;
+    }
+
+    public BigDecimal getTotalCost() {
+        return totalCost;
+    }
+
+    public void setTotalCost(BigDecimal totalCost) {
+        this.totalCost = totalCost;
     }
 }

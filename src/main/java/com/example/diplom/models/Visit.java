@@ -1,13 +1,14 @@
 package com.example.diplom.models;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "visits")
-public class Visit extends Base{
+public class Visit extends Base {
 
     private Patient patient;
     private Doctor doctor;
@@ -15,10 +16,11 @@ public class Visit extends Base{
     private String notes;
     private Set<VisitService> visitServices = new HashSet<>();
     private Attachment attachment;
+    private boolean isFinished;
+    private BigDecimal totalCost;
 
     public Visit() {
     }
-
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "patient_id", nullable = false)
@@ -83,6 +85,23 @@ public class Visit extends Base{
         this.attachment = attachment;
     }
 
+    @Column(name = "is_finished", nullable = false)
+    public boolean isFinished() {
+        return isFinished;
+    }
+
+    public void setFinished(boolean finished) {
+        isFinished = finished;
+    }
+
+    @Column(name = "total_cost", nullable = false, precision = 10, scale = 2)
+    public BigDecimal getTotalCost() {
+        return totalCost;
+    }
+
+    public void setTotalCost(BigDecimal totalCost) {
+        this.totalCost = totalCost;
+    }
 
     @Override
     public String toString() {
@@ -90,6 +109,8 @@ public class Visit extends Base{
                 "id=" + id +
                 ", visitDate=" + visitDate +
                 ", notes='" + notes + '\'' +
+                ", isFinished=" + isFinished +
+                ", totalCost=" + totalCost +
                 '}';
     }
 }

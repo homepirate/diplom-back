@@ -68,11 +68,16 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
 
-        List<VisitDto> visitDtos = visitRepository.findByDoctorId(doctor.getId()).stream()
-                .map(visit -> modelMapper.map(visit, VisitDto.class))
+        return visitRepository.findByDoctorId(doctor.getId()).stream()
+                .map(visit -> {
+                    VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
+                    visitDto.setFinished(visit.isFinished());
+                    visitDto.setTotalCost(visit.getTotalCost());
+                    return visitDto;
+                })
                 .toList();
-        return visitDtos;
     }
+
 
     @Override
     public void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest) {
@@ -110,7 +115,8 @@ public class DoctorServiceImpl implements DoctorService {
         visit.setPatient(patient);
         visit.setVisitDate(visitRequest.visitDate());
         visit.setNotes(visitRequest.notes()); // Заметки могут быть `null`
-
+        visit.setFinished(false);
+        visit.setTotalCost(BigDecimal.ZERO);
         // Сохранить визит
         Visit savedVisit = visitRepository.save(visit);
 
@@ -176,6 +182,7 @@ public class DoctorServiceImpl implements DoctorService {
         // Save the updated service
         serviceRepository.save(service);
     }
+
     @Override
     public List<PatientResponse> getDoctorPatients(UUID doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
@@ -188,7 +195,6 @@ public class DoctorServiceImpl implements DoctorService {
                 ))
                 .toList();
     }
-
 
 
 }

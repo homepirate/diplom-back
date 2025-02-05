@@ -129,37 +129,66 @@ public class DataInitializer {
     private void populateVisits() {
         Set<Patient> patients = new HashSet<>(patientRepository.findAll());
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
+        Set<Service> services = new HashSet<>(serviceRepository.findAll());
 
-        LocalDateTime startDate = LocalDateTime.now().minusMonths(1); // Начало месяца
-        LocalDateTime endDate = LocalDateTime.now(); // Сегодняшняя дата
+        LocalDateTime startDate = LocalDateTime.now().minusMonths(1);
+        LocalDateTime endDate = LocalDateTime.now();
 
         for (Doctor doctor : doctors) {
             LocalDateTime currentDate = startDate;
 
-            // Проходим по каждому дню текущего месяца
             while (currentDate.isBefore(endDate)) {
-                // Генерируем минимум 8 визитов для доктора каждый день
                 for (int i = 0; i < 8; i++) {
                     Visit visit = new Visit();
 
-                    // Случайный пациент из списка
                     Patient patient = patients.stream()
                             .skip(faker.number().numberBetween(0, patients.size()))
                             .findFirst()
                             .orElse(null);
 
-                    if (patient == null) continue; // Если пациентов нет, пропускаем
+                    if (patient == null) continue;
 
                     visit.setDoctor(doctor);
                     visit.setPatient(patient);
-                    visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12))); // Генерация времени на случайных интервалах
+                    visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12)));
                     visit.setNotes(faker.lorem().sentence());
-                    visitRepository.save(visit);
+                    visit.setFinished(faker.bool().bool());
+
+                    // **Calculate total cost before saving visit**
+                    BigDecimal totalCost = BigDecimal.ZERO;
+                    Set<VisitService> visitServices = new HashSet<>();
+
+                    for (int j = 0; j < faker.number().numberBetween(1, 4); j++) {
+                        Service service = services.stream()
+                                .skip(faker.number().numberBetween(0, services.size()))
+                                .findFirst()
+                                .orElse(null);
+
+                        if (service != null) {
+                            VisitService visitService = new VisitService();
+                            visitService.setVisit(visit);  // Assign visit before saving
+                            visitService.setService(service);
+                            visitServices.add(visitService);
+                            totalCost = totalCost.add(service.getPrice());
+                        }
+                    }
+
+                    visit.setTotalCost(totalCost); // **Set total cost before saving**
+                    visit = visitRepository.save(visit); // **Save visit after cost is set**
+
+                    // Now save visit services after visit is persisted
+                    for (VisitService visitService : visitServices) {
+                        visitService.setVisit(visit);  // Ensure visit ID is set
+                        visitServiceRepository.save(visitService);
+                    }
                 }
-                currentDate = currentDate.plusDays(1); // Переключаемся на следующий день
+                currentDate = currentDate.plusDays(1);
             }
         }
     }
+
+
+
 
     private void populateAttachments() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
