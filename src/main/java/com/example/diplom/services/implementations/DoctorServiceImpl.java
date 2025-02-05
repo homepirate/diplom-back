@@ -191,7 +191,8 @@ public class DoctorServiceImpl implements DoctorService {
         return doctor.getDoctorPatients().stream()
                 .map(doctorPatient -> new PatientResponse(
                         doctorPatient.getPatient().getFullName(),
-                        doctorPatient.getPatient().getBirthDate()
+                        doctorPatient.getPatient().getBirthDate(),
+                        doctorPatient.getPatientId()
                 ))
                 .toList();
     }
