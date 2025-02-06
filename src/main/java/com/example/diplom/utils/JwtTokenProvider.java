@@ -1,5 +1,6 @@
 package com.example.diplom.utils;
 
+import com.example.diplom.services.dtos.CustomUserDetails;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.security.core.Authentication;
@@ -25,19 +26,26 @@ public class JwtTokenProvider {
         String email = authentication.getName();
         List<String> roles = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
-                .map(role -> role.startsWith("ROLE_")
-                        ? role.substring(5)
-                        : role)
+                .map(role -> role.startsWith("ROLE_") ? role.substring(5) : role)
                 .toList();
 
         int jwtExpirationMs = 86400000;
-        return Jwts.builder()
+        var jwtBuilder = Jwts.builder()
                 .claim("roles", roles)
                 .claim("id", userId)
                 .claim("email", email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256);
+
+        // If the user is a doctor, add the code claim
+        if (authentication.getPrincipal() instanceof CustomUserDetails) {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            if (userDetails.getCode() != null) {
+                jwtBuilder.claim("code", userDetails.getCode());
+            }
+        }
+
+        return jwtBuilder.compact();
     }
 }

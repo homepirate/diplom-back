@@ -1,5 +1,6 @@
 package com.example.diplom.services.implementations;
 
+import com.example.diplom.models.Doctor;
 import com.example.diplom.models.User;
 import com.example.diplom.repositories.UserRepository;
 import com.example.diplom.services.dtos.CustomUserDetails;
@@ -22,12 +23,17 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
+        String code = null;
+        if (user instanceof Doctor) {
+            code = ((Doctor) user).getUniqueCode();
+        }
+
         return new CustomUserDetails(
                 user.getId(),
                 user.getEmail(),
                 user.getPassword(),
-                user.getRole()
+                user.getRole(),
+                code
         );
     }
 }
-

@@ -14,16 +14,22 @@ public class CustomUserDetails implements UserDetails {
     private final String email;
     private final String password;
     private final String role;
+    private final String code; // add this field
 
-    public CustomUserDetails(UUID id, String email, String password, String role) {
+    public CustomUserDetails(UUID id, String email, String password, String role, String code) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.role = role;
+        this.code = code;
     }
 
     public UUID getId() {
         return id;
+    }
+
+    public String getCode() {
+        return code;
     }
 
     @Override
