@@ -18,4 +18,7 @@ public interface DoctorService {
     List<PatientResponse> getDoctorPatients(UUID doctorId);
 
     void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest);
+
+    void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest);
+    void cancelVisit(CancelVisitRequest cancelVisitRequest);
 }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 
 import java.util.List;
+import java.util.UUID;
 
 @Tag(name = "doctors")
 @ApiResponses({
@@ -55,9 +56,20 @@ public interface DoctorAPI {
     @PutMapping(value = "/services/update-price")
     ResponseEntity<StatusResponse> updateServicePrice(
             @RequestBody UpdateServiceRequest updateServiceRequest);
+
     @Operation(summary = "Получить всех пациентов доктора")
     @GetMapping(value = "/patients")
     ResponseEntity<List<PatientResponse>> getDoctorPatients();
+
+    //сделать изменение только незавершенных визитов
+    @Operation(summary = "Изменить дату и время визита")
+    @PutMapping(value = "/visits/rearrange")
+    ResponseEntity<StatusResponse> rearrangeVisit(@RequestBody RearrangeVisitRequest rearrangeRequest);
+
+    //сделать изменение только незавершенных визитов
+    @Operation(summary = "Отменить визит")
+    @DeleteMapping(value = "/visits/cancel")
+    ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id);
 
 
 }

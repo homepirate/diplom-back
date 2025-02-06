@@ -197,6 +197,33 @@ public class DoctorServiceImpl implements DoctorService {
                 .toList();
     }
 
+    @Override
+    public void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest) {
+        Visit visit = visitRepository.findById(rearrangeRequest.visitId())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + rearrangeRequest.visitId()));
+
+        if (!visit.getDoctor().getId().equals(doctorId)) {
+            throw new SecurityException("Doctor is not authorized to modify this visit.");
+        }
+
+        visit.setVisitDate(rearrangeRequest.newVisitDate());
+        visitRepository.save(visit);
+
+        // Notify patient about rearrangement
+        notificationService.sendVisitCreatedNotification(
+                visit.getPatient().getEmail(),
+                visit.getVisitDate().toString()
+        );
+    }
+
+    @Override
+    public void cancelVisit(CancelVisitRequest cancelVisitRequest) {
+        if (!visitRepository.existsById(cancelVisitRequest.id())) {
+            throw new ResourceNotFoundException("Visit not found with id " + cancelVisitRequest.id());
+        }
+        visitRepository.deleteById(cancelVisitRequest.id());
+    }
+
 
 }
 

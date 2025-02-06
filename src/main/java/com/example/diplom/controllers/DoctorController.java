@@ -50,13 +50,14 @@ public class DoctorController implements DoctorAPI {
 
 
     @Override
-    public ResponseEntity<?>  createService(CreateServiceRequest serviceRequest) {
+    public ResponseEntity<?> createService(CreateServiceRequest serviceRequest) {
         UUID doctorId = getDoctorId();
         doctorService.createServiceForDoctor(doctorId, serviceRequest);
         CreateServiceResponse createServiceResponse = new CreateServiceResponse("CREATED", "Service created");
         return ResponseEntity.status(HttpStatus.CREATED).body(createServiceResponse);
 
     }
+
     @Override
     public ResponseEntity<List<ServiceResponse>> getDoctorServices() {
         UUID doctorId = getDoctorId();
@@ -72,6 +73,7 @@ public class DoctorController implements DoctorAPI {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
     @Override
     public ResponseEntity<StatusResponse> updateServicePrice(
             @RequestBody UpdateServiceRequest updateServiceRequest) {  // New price
@@ -87,9 +89,23 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.ok(patients);
     }
 
-    UUID getDoctorId(){
+    UUID getDoctorId() {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         UUID doctorId = UUID.fromString(jwt.getClaim("id"));
         return doctorId;
     }
+
+    @Override
+    public ResponseEntity<StatusResponse> rearrangeVisit(@RequestBody RearrangeVisitRequest rearrangeRequest) {
+        UUID doctorId = getDoctorId();
+        doctorService.rearrangeVisit(doctorId, rearrangeRequest);
+        return ResponseEntity.ok(new StatusResponse("UPDATED", "Visit rearranged successfully"));
+    }
+
+    @Override
+    public ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id) {
+        doctorService.cancelVisit(new CancelVisitRequest(id));
+        return ResponseEntity.ok(new StatusResponse("UPDATED", "Visit cancelled"));
+    }
+
 }
