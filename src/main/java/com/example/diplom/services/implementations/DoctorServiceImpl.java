@@ -217,13 +217,16 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     @Override
-    public void cancelVisit(CancelVisitRequest cancelVisitRequest) {
-        if (!visitRepository.existsById(cancelVisitRequest.id())) {
-            throw new ResourceNotFoundException("Visit not found with id " + cancelVisitRequest.id());
+    public void cancelVisit(VisitIdRequest visitIdRequest) {
+        if (!visitRepository.existsById(visitIdRequest.id())) {
+            throw new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id());
         }
-        visitRepository.deleteById(cancelVisitRequest.id());
+        visitRepository.deleteById(visitIdRequest.id());
     }
 
-
+    @Override
+    public VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest) {
+        return new VisitNotesResponse(visitRepository.getNotesById(visitIdRequest.id()));
+    }
 }
 

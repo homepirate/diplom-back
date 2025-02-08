@@ -15,7 +15,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -104,8 +103,13 @@ public class DoctorController implements DoctorAPI {
 
     @Override
     public ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id) {
-        doctorService.cancelVisit(new CancelVisitRequest(id));
+        doctorService.cancelVisit(new VisitIdRequest(id));
         return ResponseEntity.ok(new StatusResponse("UPDATED", "Visit cancelled"));
     }
 
+    @Override
+    public ResponseEntity<VisitNotesResponse> getVisitNotes(UUID id) {
+        return ResponseEntity.ok(doctorService.getVisitDescription(new VisitIdRequest(id)));
+
+    }
 }

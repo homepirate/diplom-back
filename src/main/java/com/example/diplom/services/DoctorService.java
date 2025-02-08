@@ -5,7 +5,6 @@ import com.example.diplom.services.dtos.VisitDto;
 
 import java.util.List;
 import java.util.UUID;
-import java.math.BigDecimal;
 
 public interface DoctorService {
     void registerDoctor(DoctorRegisterRequest doctor);
@@ -20,5 +19,7 @@ public interface DoctorService {
     void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest);
 
     void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest);
-    void cancelVisit(CancelVisitRequest cancelVisitRequest);
+    void cancelVisit(VisitIdRequest visitIdRequest);
+
+    VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest);
 }

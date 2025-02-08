@@ -11,8 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -70,6 +68,10 @@ public interface DoctorAPI {
     @Operation(summary = "Отменить визит")
     @DeleteMapping(value = "/visits/cancel")
     ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id);
+
+    @Operation(summary = "Получить описание визита")
+    @GetMapping(value = "/visits/get-notes")
+    ResponseEntity<VisitNotesResponse> getVisitNotes(@RequestParam("id") UUID id);
 
 
 }
