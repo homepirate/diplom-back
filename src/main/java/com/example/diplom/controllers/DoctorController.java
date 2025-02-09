@@ -112,4 +112,10 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.ok(doctorService.getVisitDescription(new VisitIdRequest(id)));
 
     }
+
+    @Override
+    public ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest) {
+        doctorService.finishVisit(finishVisitRequest);
+        return ResponseEntity.ok(new StatusResponse("UPDATE", "Visit finished"));
+    }
 }

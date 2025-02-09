@@ -14,10 +14,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class DoctorServiceImpl implements DoctorService {
@@ -126,10 +125,6 @@ public class DoctorServiceImpl implements DoctorService {
                 savedVisit.getVisitDate().toString()
         );
 
-        // Если услуги были переданы, обработать добавление связей через отдельный метод
-        if (visitRequest.services() != null && !visitRequest.services().isEmpty()) {
-            createVisitServices(savedVisit, visitRequest.services());
-        }
 
         return new CreateVisitResponse(
 //                savedVisit.getId(),
@@ -140,21 +135,44 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     private void createVisitServices(Visit visit, List<String> serviceNames) {
-        // Найти все указанные услуги
-        List<com.example.diplom.models.Service> services = serviceRepository.findByNameIn(serviceNames);
+        // Group service names and count occurrences
+        Map<String, Long> serviceCount = serviceNames.stream()
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
-        if (services.size() != serviceNames.size()) {
-            throw new ResourceNotFoundException("One or more services not found: " + serviceNames);
+        // Get the distinct service names from the keys
+        List<String> distinctNames = new ArrayList<>(serviceCount.keySet());
+
+        // Fetch the corresponding Service entities using the distinct names
+        List<com.example.diplom.models.Service> services = serviceRepository.findByNameIn(distinctNames);
+
+        // Ensure that all required services were found
+        if (services.size() != distinctNames.size()) {
+            Set<String> foundNames = services.stream()
+                    .map(com.example.diplom.models.Service::getName)
+                    .collect(Collectors.toSet());
+            List<String> missing = distinctNames.stream()
+                    .filter(name -> !foundNames.contains(name))
+                    .collect(Collectors.toList());
+            throw new ResourceNotFoundException("Services not found: " + missing);
         }
 
-        // Создать связи между визитом и найденными услугами
-        for (com.example.diplom.models.Service service : services) {
-            VisitService visitService = new VisitService();
-            visitService.setVisit(visit);
-            visitService.setService(service);
-            visitServiceRepository.save(visitService); // Сохранить связь
+        // Build a lookup map by service name
+        Map<String, com.example.diplom.models.Service> serviceMap = services.stream()
+                .collect(Collectors.toMap(com.example.diplom.models.Service::getName, Function.identity()));
+
+        // For each distinct service, create one VisitService record with its quantity
+        for (Map.Entry<String, Long> entry : serviceCount.entrySet()) {
+            String serviceName = entry.getKey();
+            int quantity = entry.getValue().intValue();
+            VisitService vs = new VisitService();
+            vs.setVisit(visit);
+            vs.setService(serviceMap.get(serviceName));
+            vs.setQuantity(quantity);
+            visitServiceRepository.save(vs);
         }
     }
+
+
 
     @Override
     public List<ServiceResponse> getDoctorServices(UUID doctorId) {
@@ -228,5 +246,45 @@ public class DoctorServiceImpl implements DoctorService {
     public VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest) {
         return new VisitNotesResponse(visitRepository.getNotesById(visitIdRequest.id()));
     }
+
+    @Override
+    public void finishVisit(FinishVisitRequest finishVisitRequest) {
+        // Step 1: Retrieve the visit based on the visit ID
+        Visit visit = visitRepository.findById(finishVisitRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + finishVisitRequest.id()));
+
+        // Step 2: Ensure that at least one service is provided
+        if (finishVisitRequest.services() == null || finishVisitRequest.services().isEmpty()) {
+            throw new IllegalArgumentException("At least one service must be provided to finish the visit.");
+        }
+
+        // Step 3: Mark the visit as finished
+        visit.setFinished(true);
+
+        // Step 4: Add the provided services to the visit
+        createVisitServices(visit, finishVisitRequest.services());
+
+        // Step 5: Update the notes only if they are different
+        if ( !finishVisitRequest.notes().equals(visit.getNotes())) {
+            visit.setNotes(finishVisitRequest.notes());
+        }
+
+        // Step 6: Recalculate the total cost based on the added services
+        BigDecimal totalCost = visitServiceRepository.findByVisit(visit).stream()
+                .map(vs -> vs.getService().getPrice())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        visit.setTotalCost(totalCost);
+
+        // Step 7: Save the updated visit
+        visitRepository.save(visit);
+
+        // Step 8: Notify the patient that the visit has been completed
+       /* notificationService.sendVisitFinishedNotification(
+                visit.getPatient().getEmail(),
+                visit.getVisitDate().toString()
+        );*/
+    }
+
+
 }
 

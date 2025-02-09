@@ -14,17 +14,18 @@ public class VisitService {
     private UUID serviceId;
     private Visit visit;
     private Service service;
+    private int quantity; // New field for quantity
 
     public VisitService() {
     }
 
-    public VisitService(Visit visit, Service service) {
+    public VisitService(Visit visit, Service service, int quantity) {
         this.visit = visit;
         this.service = service;
         this.visitId = visit.getId();
         this.serviceId = service.getId();
+        this.quantity = quantity;
     }
-
 
     @Id
     @Column(name = "visit_id", nullable = false)
@@ -72,6 +73,15 @@ public class VisitService {
         }
     }
 
+    // Getter and setter for the new quantity field
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -91,6 +101,7 @@ public class VisitService {
         return "VisitService{" +
                 "visitId=" + visitId +
                 ", serviceId=" + serviceId +
+                ", quantity=" + quantity +
                 '}';
     }
 }

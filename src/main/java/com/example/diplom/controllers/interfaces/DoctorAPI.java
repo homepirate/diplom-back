@@ -73,5 +73,9 @@ public interface DoctorAPI {
     @GetMapping(value = "/visits/get-notes")
     ResponseEntity<VisitNotesResponse> getVisitNotes(@RequestParam("id") UUID id);
 
+    @Operation(summary = "Завершить визит")
+    @PutMapping(value = "/visits/finish")
+    ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest);
+
 
 }

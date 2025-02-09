@@ -1,6 +1,7 @@
 package com.example.diplom.services;
 
 import com.example.diplom.controllers.RR.*;
+import com.example.diplom.exceptions.StatusResponse;
 import com.example.diplom.services.dtos.VisitDto;
 
 import java.util.List;
@@ -22,4 +23,6 @@ public interface DoctorService {
     void cancelVisit(VisitIdRequest visitIdRequest);
 
     VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest);
+
+    void finishVisit(FinishVisitRequest finishVisitRequest);
 }
