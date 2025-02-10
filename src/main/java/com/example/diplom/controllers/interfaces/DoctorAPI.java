@@ -78,4 +78,9 @@ public interface DoctorAPI {
     ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest);
 
 
+    @Operation(summary = "Получить данные для завершения визита")
+    @GetMapping("/visits/finish-data")
+    ResponseEntity<FinishVisitDataResponse> getFinishVisitData(@RequestParam("id") UUID id);
+
+
 }

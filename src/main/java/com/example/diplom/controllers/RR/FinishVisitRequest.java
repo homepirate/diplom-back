@@ -5,7 +5,5 @@ import java.util.UUID;
 
 public record FinishVisitRequest(
         UUID id,
-        List<String> services,
-        String notes) {
-
-}
+        List<ServiceUpdateRequest> services,
+        String notes) { }

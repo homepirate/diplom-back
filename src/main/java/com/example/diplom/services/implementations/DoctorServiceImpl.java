@@ -8,6 +8,7 @@ import com.example.diplom.notif.NotificationService;
 import com.example.diplom.repositories.*;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
+import com.example.diplom.services.dtos.ServiceDTO;
 import com.example.diplom.services.dtos.VisitDto;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -134,43 +135,41 @@ public class DoctorServiceImpl implements DoctorService {
         );
     }
 
-    private void createVisitServices(Visit visit, List<String> serviceNames) {
-        // Group service names and count occurrences
-        Map<String, Long> serviceCount = serviceNames.stream()
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+    private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
+        // Get the existing visit services, keyed by service name
+        List<VisitService> existingVisitServices = visitServiceRepository.findByVisit(visit);
+        Map<String, VisitService> existingServiceMap = existingVisitServices.stream()
+                .collect(Collectors.toMap(vs -> vs.getService().getName(), Function.identity()));
 
-        // Get the distinct service names from the keys
-        List<String> distinctNames = new ArrayList<>(serviceCount.keySet());
+        // Process each service update from the client
+        for (ServiceUpdateRequest update : serviceUpdates) {
+            if (update.quantity() < 0) {
+                throw new IllegalArgumentException("Service quantity cannot be negative for service: " + update.name());
+            }
 
-        // Fetch the corresponding Service entities using the distinct names
-        List<com.example.diplom.models.Service> services = serviceRepository.findByNameIn(distinctNames);
+            // Look up the service entity using the doctor’s ID and service name.
+            com.example.diplom.models.Service service = serviceRepository
+                    .findByDoctorIdAndName(visit.getDoctor().getId(), update.name())
+                    .orElseThrow(() -> new ResourceNotFoundException("Service not found with name: " + update.name()));
 
-        // Ensure that all required services were found
-        if (services.size() != distinctNames.size()) {
-            Set<String> foundNames = services.stream()
-                    .map(com.example.diplom.models.Service::getName)
-                    .collect(Collectors.toSet());
-            List<String> missing = distinctNames.stream()
-                    .filter(name -> !foundNames.contains(name))
-                    .collect(Collectors.toList());
-            throw new ResourceNotFoundException("Services not found: " + missing);
-        }
-
-        // Build a lookup map by service name
-        Map<String, com.example.diplom.models.Service> serviceMap = services.stream()
-                .collect(Collectors.toMap(com.example.diplom.models.Service::getName, Function.identity()));
-
-        // For each distinct service, create one VisitService record with its quantity
-        for (Map.Entry<String, Long> entry : serviceCount.entrySet()) {
-            String serviceName = entry.getKey();
-            int quantity = entry.getValue().intValue();
-            VisitService vs = new VisitService();
-            vs.setVisit(visit);
-            vs.setService(serviceMap.get(serviceName));
-            vs.setQuantity(quantity);
-            visitServiceRepository.save(vs);
+            if (existingServiceMap.containsKey(update.name())) {
+                // Update the existing VisitService record with the new quantity.
+                VisitService vs = existingServiceMap.get(update.name());
+                vs.setQuantity(update.quantity());
+                visitServiceRepository.save(vs);
+            } else {
+                // If no record exists and the final quantity is > 0, create a new record.
+                if (update.quantity() > 0) {
+                    VisitService newVs = new VisitService();
+                    newVs.setVisit(visit);
+                    newVs.setService(service);
+                    newVs.setQuantity(update.quantity());
+                    visitServiceRepository.save(newVs);
+                }
+            }
         }
     }
+
 
 
 
@@ -249,41 +248,67 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Override
     public void finishVisit(FinishVisitRequest finishVisitRequest) {
-        // Step 1: Retrieve the visit based on the visit ID
+        // Retrieve the visit
         Visit visit = visitRepository.findById(finishVisitRequest.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + finishVisitRequest.id()));
 
-        // Step 2: Ensure that at least one service is provided
+        // Require at least one service update
         if (finishVisitRequest.services() == null || finishVisitRequest.services().isEmpty()) {
             throw new IllegalArgumentException("At least one service must be provided to finish the visit.");
         }
 
-        // Step 3: Mark the visit as finished
         visit.setFinished(true);
 
-        // Step 4: Add the provided services to the visit
-        createVisitServices(visit, finishVisitRequest.services());
+        // Update (or create) visit service records based on the final quantities provided
+        updateVisitServices(visit, finishVisitRequest.services());
 
-        // Step 5: Update the notes only if they are different
-        if ( !finishVisitRequest.notes().equals(visit.getNotes())) {
+        // Update the visit notes if they have changed
+        if (!finishVisitRequest.notes().equals(visit.getNotes())) {
             visit.setNotes(finishVisitRequest.notes());
         }
 
-        // Step 6: Recalculate the total cost based on the added services
+        // Recalculate the total cost based on the updated service quantities
         BigDecimal totalCost = visitServiceRepository.findByVisit(visit).stream()
-                .map(vs -> vs.getService().getPrice())
+                .map(vs -> vs.getService().getPrice().multiply(BigDecimal.valueOf(vs.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         visit.setTotalCost(totalCost);
 
-        // Step 7: Save the updated visit
+        // Save the updated visit
         visitRepository.save(visit);
-
-        // Step 8: Notify the patient that the visit has been completed
-       /* notificationService.sendVisitFinishedNotification(
-                visit.getPatient().getEmail(),
-                visit.getVisitDate().toString()
-        );*/
     }
+    @Override
+    public FinishVisitDataResponse getFinishVisitData(VisitIdRequest visitIdRequest) {
+        Visit visit = visitRepository.findById(visitIdRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id()));
+
+        UUID doctorId = visit.getDoctor().getId();
+        List<com.example.diplom.models.Service> doctorServices = serviceRepository.findByDoctorId(doctorId);
+
+        // Fetch services with their actual quantities for this visit
+        List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
+
+        // Build a lookup map: serviceId -> quantity
+        Map<UUID, Integer> serviceQuantities = visitServices.stream()
+                .collect(Collectors.toMap(vs -> vs.getService().getId(), VisitService::getQuantity));
+
+        // Ensure missing services start with 0 quantity (not 1)
+        List<ServiceDTO> services = doctorServices.stream()
+                .map(service -> new ServiceDTO(
+                        service.getId(),
+                        service.getName(),
+                        service.getPrice(),
+                        serviceQuantities.getOrDefault(service.getId(), 0) // Ensure default is 0, not 1
+                ))
+                .toList();
+
+        return new FinishVisitDataResponse(
+                visit.getNotes() != null ? visit.getNotes() : "",
+                visit.getTotalCost(),
+                services
+        );
+    }
+
+
 
 
 }

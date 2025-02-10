@@ -25,4 +25,7 @@ public interface DoctorService {
     VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest);
 
     void finishVisit(FinishVisitRequest finishVisitRequest);
+
+    FinishVisitDataResponse getFinishVisitData(VisitIdRequest visitIdRequest);
+
 }
