@@ -308,6 +308,27 @@ public class DoctorServiceImpl implements DoctorService {
         );
     }
 
+    @Override
+    public List<VisitDto> getVisitsByPatientAndDoctor(UUID patientId, UUID doctorId) {
+        // Ensure both patient and doctor exist
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id " + patientId));
+
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+
+        // Fetch only visits that belong to the specific doctor and patient
+        return visitRepository.findByPatientIdAndDoctorId(patient.getId(), doctor.getId()).stream()
+                .map(visit -> {
+                    VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
+                    visitDto.setFinished(visit.isFinished());
+                    return visitDto;
+                })
+                .toList();
+    }
+
+
+
 
 
 

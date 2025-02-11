@@ -82,5 +82,10 @@ public interface DoctorAPI {
     @GetMapping("/visits/finish-data")
     ResponseEntity<FinishVisitDataResponse> getFinishVisitData(@RequestParam("id") UUID id);
 
+    @Operation(summary = "Получить все визиты пациента по ID")
+    @GetMapping(value = "/visits/by-patient")
+    ResponseEntity<List<VisitDateResponse>> getVisitsByPatient(@RequestParam("patientId") UUID patientId);
+
+
 
 }

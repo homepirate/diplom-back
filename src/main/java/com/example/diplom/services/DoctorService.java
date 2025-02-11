@@ -27,5 +27,7 @@ public interface DoctorService {
     void finishVisit(FinishVisitRequest finishVisitRequest);
 
     FinishVisitDataResponse getFinishVisitData(VisitIdRequest visitIdRequest);
+    List<VisitDto> getVisitsByPatientAndDoctor(UUID patientId, UUID doctorId);
+
 
 }
