@@ -80,11 +80,12 @@ public interface DoctorAPI {
 
     @Operation(summary = "Получить данные для завершения визита")
     @GetMapping("/visits/finish-data")
-    ResponseEntity<FinishVisitDataResponse> getFinishVisitData(@RequestParam("id") UUID id);
+    ResponseEntity<VisitDetailsResponse> getFinishVisitData(@RequestParam("id") UUID id);
 
-    @Operation(summary = "Получить все визиты пациента по ID")
-    @GetMapping(value = "/visits/by-patient")
-    ResponseEntity<List<VisitDateResponse>> getVisitsByPatient(@RequestParam("patientId") UUID patientId);
+    @Operation(summary = "Получить медицинскую карту пациента")
+    @GetMapping("/visits/medical-card")
+    ResponseEntity<PatientMedCardResponse> getPatientMedicalCard(@RequestParam("patientId") UUID patientId);
+
 
 
 

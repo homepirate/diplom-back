@@ -120,28 +120,18 @@ public class DoctorController implements DoctorAPI {
     }
 
     @Override
-    public ResponseEntity<FinishVisitDataResponse> getFinishVisitData(@RequestParam("id") UUID id) {
-        FinishVisitDataResponse response = doctorService.getFinishVisitData(new VisitIdRequest(id));
+    public ResponseEntity<VisitDetailsResponse> getFinishVisitData(@RequestParam("id") UUID id) {
+        VisitDetailsResponse response = doctorService.getFinishVisitData(new VisitIdRequest(id));
         return ResponseEntity.ok(response);
     }
 
     @Override
-    public ResponseEntity<List<VisitDateResponse>> getVisitsByPatient(@RequestParam("patientId") UUID patientId) {
-        UUID doctorId = getDoctorId(); // Extract doctor ID from token
-
-        List<VisitDto> visits = doctorService.getVisitsByPatientAndDoctor(patientId, doctorId);
-
-        List<VisitDateResponse> response = visits.stream()
-                .map(visit -> new VisitDateResponse(
-                        visit.getId(),
-                        visit.getVisitDate(),
-                        visit.getPatient() != null ? visit.getPatient().getFullName() : "Unknown",
-                        visit.isFinished()
-                ))
-                .toList();
-
+    public ResponseEntity<PatientMedCardResponse> getPatientMedicalCard(@RequestParam("patientId") UUID patientId) {
+        UUID doctorId = getDoctorId();
+        PatientMedCardResponse response = doctorService.getPatientMedicalCard(doctorId, patientId);
         return ResponseEntity.ok(response);
     }
+
 
 
 
