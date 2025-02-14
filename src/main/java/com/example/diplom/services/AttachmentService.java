@@ -10,5 +10,5 @@ import java.util.UUID;
 public interface AttachmentService {
 
     AttachmentDto addAttachment(UUID patientId, AddAttachmentRequest request) throws IOException;
-    String storeFile(MultipartFile file) throws IOException;
+    String storeFile(MultipartFile file) throws Exception;
 }

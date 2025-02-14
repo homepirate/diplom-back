@@ -2,7 +2,10 @@ package com.example.diplom.services.implementations;
 
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.dtos.AttachmentDto;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
@@ -25,13 +28,18 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final AttachmentRepository attachmentRepository;
     private final Path fileStorageLocation;
     private final ModelMapper modelMapper;
+    private final MinioClient minioClient;
+
+    @Value("${minio.bucket.name}")
+    private String bucketName;
 
     @Autowired
     public AttachmentServiceImpl(VisitRepository visitRepository,
-                                 AttachmentRepository attachmentRepository, ModelMapper modelMapper) throws IOException {
+                                 AttachmentRepository attachmentRepository, ModelMapper modelMapper, MinioClient minioClient) throws IOException {
         this.visitRepository = visitRepository;
         this.attachmentRepository = attachmentRepository;
         this.modelMapper = modelMapper;
+        this.minioClient = minioClient;
         this.fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
         Files.createDirectories(this.fileStorageLocation);
     }
@@ -42,8 +50,13 @@ public class AttachmentServiceImpl implements AttachmentService {
         Visit visit = visitRepository.findByIdAndPatientId(request.visitId(), patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found for the given patient"));
 
-        // Store the file
-        String fileName = storeFile(request.file());
+
+        String fileName;
+        try {
+            fileName = storeFile(request.file());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         // Create and save the attachment
         Attachment attachment = new Attachment();
@@ -56,14 +69,20 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
-    public String storeFile(MultipartFile file) throws IOException {
-        // Normalize file name
+    public String storeFile(MultipartFile file) throws Exception {
+        // Нормализуем имя файла
         String originalFileName = Paths.get(file.getOriginalFilename()).getFileName().toString();
         String fileName = UUID.randomUUID() + "_" + originalFileName;
 
-        // Copy file to the target location (Replacing existing file with the same name)
-        Path targetLocation = this.fileStorageLocation.resolve(fileName);
-        Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+        // Загружаем файл в бакет MinIO
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(fileName)
+                        .stream(file.getInputStream(), file.getSize(), -1)
+                        .contentType(file.getContentType())
+                        .build()
+        );
 
         return fileName;
     }
