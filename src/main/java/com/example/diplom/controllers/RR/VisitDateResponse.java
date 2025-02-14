@@ -7,5 +7,6 @@ public record VisitDateResponse(
         UUID visitId,
         LocalDateTime visitDate,
         String patientName,
+        String notes,
         boolean isFinished) {
 }

@@ -42,6 +42,7 @@ public class DoctorController implements DoctorAPI {
                         visit.getId(),
                         visit.getVisitDate(),
                         visit.getPatient() != null ? visit.getPatient().getFullName() : "Unknown",
+                        visit.getNotes(),
                         visit.isFinished()
                 ))
                 .collect(Collectors.toList());

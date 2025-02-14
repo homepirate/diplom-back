@@ -73,6 +73,7 @@ public class DoctorServiceImpl implements DoctorService {
                     VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
                     visitDto.setFinished(visit.isFinished());
                     visitDto.setTotalCost(visit.getTotalCost());
+                    visitDto.setNotes(visit.getNotes());
                     return visitDto;
                 })
                 .toList();
