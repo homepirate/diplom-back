@@ -21,7 +21,7 @@ target/
 
 # Конфигурационный файл Java-приложения
 /src/main/resources/application.properties
-
+/src/main/resources/keystore.p12
 
 ### NetBeans ###
 /nbproject/private/
