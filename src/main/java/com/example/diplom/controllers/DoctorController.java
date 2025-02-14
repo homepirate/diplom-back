@@ -42,6 +42,7 @@ public class DoctorController implements DoctorAPI {
                         visit.getId(),
                         visit.getVisitDate(),
                         visit.getPatient() != null ? visit.getPatient().getFullName() : "Unknown",
+                        visit.getNotes(),
                         visit.isFinished()
                 ))
                 .collect(Collectors.toList());
@@ -112,4 +113,27 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.ok(doctorService.getVisitDescription(new VisitIdRequest(id)));
 
     }
+
+    @Override
+    public ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest) {
+        doctorService.finishVisit(finishVisitRequest);
+        return ResponseEntity.ok(new StatusResponse("UPDATE", "Visit finished"));
+    }
+
+    @Override
+    public ResponseEntity<VisitDetailsResponse> getFinishVisitData(@RequestParam("id") UUID id) {
+        VisitDetailsResponse response = doctorService.getFinishVisitData(new VisitIdRequest(id));
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<PatientMedCardResponse> getPatientMedicalCard(@RequestParam("patientId") UUID patientId) {
+        UUID doctorId = getDoctorId();
+        PatientMedCardResponse response = doctorService.getPatientMedicalCard(doctorId, patientId);
+        return ResponseEntity.ok(response);
+    }
+
+
+
+
 }

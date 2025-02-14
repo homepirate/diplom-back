@@ -8,16 +8,16 @@ import com.example.diplom.notif.NotificationService;
 import com.example.diplom.repositories.*;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
+
 import com.example.diplom.services.dtos.VisitDto;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class DoctorServiceImpl implements DoctorService {
@@ -73,6 +73,7 @@ public class DoctorServiceImpl implements DoctorService {
                     VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
                     visitDto.setFinished(visit.isFinished());
                     visitDto.setTotalCost(visit.getTotalCost());
+                    visitDto.setNotes(visit.getNotes());
                     return visitDto;
                 })
                 .toList();
@@ -126,10 +127,6 @@ public class DoctorServiceImpl implements DoctorService {
                 savedVisit.getVisitDate().toString()
         );
 
-        // Если услуги были переданы, обработать добавление связей через отдельный метод
-        if (visitRequest.services() != null && !visitRequest.services().isEmpty()) {
-            createVisitServices(savedVisit, visitRequest.services());
-        }
 
         return new CreateVisitResponse(
 //                savedVisit.getId(),
@@ -139,22 +136,41 @@ public class DoctorServiceImpl implements DoctorService {
         );
     }
 
-    private void createVisitServices(Visit visit, List<String> serviceNames) {
-        // Найти все указанные услуги
-        List<com.example.diplom.models.Service> services = serviceRepository.findByNameIn(serviceNames);
+    private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
+        // Get the existing visit services, keyed by service name
+        List<VisitService> existingVisitServices = visitServiceRepository.findByVisit(visit);
+        Map<String, VisitService> existingServiceMap = existingVisitServices.stream()
+                .collect(Collectors.toMap(vs -> vs.getService().getName(), Function.identity()));
 
-        if (services.size() != serviceNames.size()) {
-            throw new ResourceNotFoundException("One or more services not found: " + serviceNames);
-        }
+        // Process each service update from the client
+        for (ServiceUpdateRequest update : serviceUpdates) {
+            if (update.quantity() < 0) {
+                throw new IllegalArgumentException("Service quantity cannot be negative for service: " + update.name());
+            }
 
-        // Создать связи между визитом и найденными услугами
-        for (com.example.diplom.models.Service service : services) {
-            VisitService visitService = new VisitService();
-            visitService.setVisit(visit);
-            visitService.setService(service);
-            visitServiceRepository.save(visitService); // Сохранить связь
+            // Look up the service entity using the doctor’s ID and service name.
+            com.example.diplom.models.Service service = serviceRepository
+                    .findByDoctorIdAndName(visit.getDoctor().getId(), update.name())
+                    .orElseThrow(() -> new ResourceNotFoundException("Service not found with name: " + update.name()));
+
+            if (existingServiceMap.containsKey(update.name())) {
+                // Update the existing VisitService record with the new quantity.
+                VisitService vs = existingServiceMap.get(update.name());
+                vs.setQuantity(update.quantity());
+                visitServiceRepository.save(vs);
+            } else {
+                // If no record exists and the final quantity is > 0, create a new record.
+                if (update.quantity() > 0) {
+                    VisitService newVs = new VisitService();
+                    newVs.setVisit(visit);
+                    newVs.setService(service);
+                    newVs.setQuantity(update.quantity());
+                    visitServiceRepository.save(newVs);
+                }
+            }
         }
     }
+
 
     @Override
     public List<ServiceResponse> getDoctorServices(UUID doctorId) {
@@ -228,5 +244,122 @@ public class DoctorServiceImpl implements DoctorService {
     public VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest) {
         return new VisitNotesResponse(visitRepository.getNotesById(visitIdRequest.id()));
     }
+
+    @Override
+    public void finishVisit(FinishVisitRequest finishVisitRequest) {
+        // Retrieve the visit
+        Visit visit = visitRepository.findById(finishVisitRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + finishVisitRequest.id()));
+
+        // Require at least one service update
+        if (finishVisitRequest.services() == null || finishVisitRequest.services().isEmpty()) {
+            throw new IllegalArgumentException("At least one service must be provided to finish the visit.");
+        }
+
+        visit.setFinished(true);
+
+        // Update (or create) visit service records based on the final quantities provided
+        updateVisitServices(visit, finishVisitRequest.services());
+
+        // Update the visit notes if they have changed
+        if (!finishVisitRequest.notes().equals(visit.getNotes())) {
+            visit.setNotes(finishVisitRequest.notes());
+        }
+
+        // Recalculate the total cost based on the updated service quantities
+        BigDecimal totalCost = visitServiceRepository.findByVisit(visit).stream()
+                .map(vs -> vs.getService().getPrice().multiply(BigDecimal.valueOf(vs.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        visit.setTotalCost(totalCost);
+
+        // Save the updated visit
+        visitRepository.save(visit);
+    }
+
+    @Override
+    public VisitDetailsResponse getFinishVisitData(VisitIdRequest visitIdRequest) {
+        Visit visit = visitRepository.findById(visitIdRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id()));
+
+        UUID doctorId = visit.getDoctor().getId();
+        List<com.example.diplom.models.Service> doctorServices = serviceRepository.findByDoctorId(doctorId);
+
+        // Fetch services with their actual quantities for this visit
+        List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
+
+        // Build a lookup map: serviceId -> quantity
+        Map<UUID, Integer> serviceQuantities = visitServices.stream()
+                .collect(Collectors.toMap(vs -> vs.getService().getId(), VisitService::getQuantity));
+
+        // Ensure missing services start with 0 quantity (not 1)
+        List<VisitServicesDetailsResponse> services = doctorServices.stream()
+                .map(service -> new VisitServicesDetailsResponse(
+                        service.getId(),
+                        service.getName(),
+                        service.getPrice(),
+                        serviceQuantities.getOrDefault(service.getId(), 0) // Ensure default is 0, not 1
+                ))
+                .toList();
+
+        return new VisitDetailsResponse(
+                visit.getId(),
+                visit.getVisitDate(),
+                visit.isFinished(),
+                visit.getNotes() != null ? visit.getNotes() : "",
+                visit.getTotalCost(),
+                services
+        );
+    }
+
+    @Override
+    public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
+        // Retrieve the patient entity from the repository.
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id " + patientId));
+
+        // Optionally, verify that the patient is linked to the doctor (for authorization)
+        // e.g., check if there are visits or if the doctor is present in the patient’s doctorPatients set.
+
+        // Fetch visits for this patient that belong to the given doctor.
+        List<Visit> visits = visitRepository.findByPatientIdAndDoctorId(patientId, doctorId);
+
+        // Map each visit to a VisitDetailResponse.
+        List<VisitDetailsResponse> visitDetails = visits.stream().map(visit -> {
+            // For each visit, get the list of associated services.
+            List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
+
+            // Map the VisitService objects to VisitServiceResponse.
+            List<VisitServicesDetailsResponse> serviceResponses = visitServices.stream()
+                    .map(vs -> new VisitServicesDetailsResponse(
+                            vs.getServiceId(),
+                            vs.getService().getName(),
+                            vs.getService().getPrice(),
+                            vs.getQuantity()
+                    ))
+                    .collect(Collectors.toList());
+
+            return new VisitDetailsResponse(
+                    visit.getId(),
+                    visit.getVisitDate(),
+                    visit.isFinished(),
+                    visit.getNotes() != null ? visit.getNotes() : "",
+                    visit.getTotalCost(),
+                    serviceResponses
+            );
+
+        }).collect(Collectors.toList());
+
+
+        return new PatientMedCardResponse(
+                patient.getId(),
+                patient.getFullName(),
+                patient.getBirthDate(),
+                patient.getEmail(),
+                patient.getPhone(),
+                visitDetails
+        );
+    }
+
+
 }
 

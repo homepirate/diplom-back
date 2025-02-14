@@ -73,5 +73,20 @@ public interface DoctorAPI {
     @GetMapping(value = "/visits/get-notes")
     ResponseEntity<VisitNotesResponse> getVisitNotes(@RequestParam("id") UUID id);
 
+    @Operation(summary = "Завершить визит")
+    @PutMapping(value = "/visits/finish")
+    ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest);
+
+
+    @Operation(summary = "Получить данные для завершения визита")
+    @GetMapping("/visits/finish-data")
+    ResponseEntity<VisitDetailsResponse> getFinishVisitData(@RequestParam("id") UUID id);
+
+    @Operation(summary = "Получить медицинскую карту пациента")
+    @GetMapping("/visits/medical-card")
+    ResponseEntity<PatientMedCardResponse> getPatientMedicalCard(@RequestParam("patientId") UUID patientId);
+
+
+
 
 }

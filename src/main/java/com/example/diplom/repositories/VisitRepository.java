@@ -19,4 +19,9 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     String getNotesById(UUID id);
 
 
+    List<Visit> findByPatientIdAndDoctorId(UUID patientId, UUID doctorId);
+
+
+
+
 }
