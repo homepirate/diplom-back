@@ -108,11 +108,6 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.ok(new StatusResponse("UPDATED", "Visit cancelled"));
     }
 
-    @Override
-    public ResponseEntity<VisitNotesResponse> getVisitNotes(UUID id) {
-        return ResponseEntity.ok(doctorService.getVisitDescription(new VisitIdRequest(id)));
-
-    }
 
     @Override
     public ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest) {

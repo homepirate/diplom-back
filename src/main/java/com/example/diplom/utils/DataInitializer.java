@@ -3,12 +3,17 @@ package com.example.diplom.utils;
 import com.example.diplom.models.*;
 import com.example.diplom.repositories.*;
 import com.github.javafaker.Faker;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -23,9 +28,13 @@ public class DataInitializer {
     private final DoctorPatientRepository doctorPatientRepository;
     private final VisitServiceRepository visitServiceRepository;
     private final SpecializationRepository specializationRepository;
+    private final MinioClient minioClient;
 
     private final Faker faker;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${minio.bucket.name}")
+    private String bucketName;
 
     @Autowired
     public DataInitializer(DoctorRepository doctorRepository, PatientRepository patientRepository,
@@ -33,7 +42,8 @@ public class DataInitializer {
                            AttachmentRepository attachmentRepository, DoctorPatientRepository doctorPatientRepository,
                            VisitServiceRepository visitServiceRepository,
                            SpecializationRepository specializationRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           MinioClient minioClient) {
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
         this.visitRepository = visitRepository;
@@ -43,6 +53,7 @@ public class DataInitializer {
         this.visitServiceRepository = visitServiceRepository;
         this.specializationRepository = specializationRepository;
         this.passwordEncoder = passwordEncoder;
+        this.minioClient = minioClient;
         this.faker = new Faker();
     }
 
@@ -81,8 +92,8 @@ public class DataInitializer {
                     .skip(faker.number().numberBetween(0, (int) specializationRepository.count()))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No specializations found"));
-
             doctor.setSpecialization(specialization);
+
             doctorRepository.save(doctor);
         }
     }
@@ -103,10 +114,8 @@ public class DataInitializer {
 
     private void populateServices() {
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-
         for (Doctor doctor : doctors) {
             Set<String> existingServiceNames = new HashSet<>();
-
             for (int i = 0; i < 3; i++) {
                 String serviceName;
                 do {
@@ -128,8 +137,6 @@ public class DataInitializer {
     private void populateVisits() {
         Set<Patient> patients = new HashSet<>(patientRepository.findAll());
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-        // Get the list of all services
-        List<Service> services = serviceRepository.findAll();
 
         LocalDateTime startDate = LocalDateTime.now().minusMonths(1);
         LocalDateTime endDate = LocalDateTime.now();
@@ -149,40 +156,46 @@ public class DataInitializer {
                     visit.setPatient(patient);
                     visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12)));
                     visit.setNotes(faker.lorem().sentence());
-                    visit.setFinished(faker.bool().bool());
+                    boolean isFinished = faker.bool().bool();
+                    visit.setFinished(isFinished);
 
-                    // Group VisitServices by Service to set quantities
-                    Map<Service, VisitService> visitServiceMap = new HashMap<>();
-                    BigDecimal totalCost = BigDecimal.ZERO;
-
-                    int numServices = faker.number().numberBetween(1, 4);
-                    for (int j = 0; j < numServices; j++) {
-                        Service service = services.stream()
-                                .skip(faker.number().numberBetween(0, services.size()))
-                                .findFirst().orElse(null);
-                        if (service != null) {
-                            // Update quantity if the service already exists for this visit
-                            if (visitServiceMap.containsKey(service)) {
-                                VisitService existing = visitServiceMap.get(service);
-                                existing.setQuantity(existing.getQuantity() + 1);
-                            } else {
-                                VisitService vs = new VisitService();
-                                vs.setVisit(visit);
-                                vs.setService(service);
-                                vs.setQuantity(1);
-                                visitServiceMap.put(service, vs);
-                            }
-                            totalCost = totalCost.add(service.getPrice());
-                        }
-                    }
-
-                    visit.setTotalCost(totalCost);
+                    // Set default totalCost to avoid NULL insertion
+                    visit.setTotalCost(BigDecimal.ZERO);
                     visit = visitRepository.save(visit);
 
-                    // Save grouped VisitService entries
-                    for (VisitService vs : visitServiceMap.values()) {
-                        vs.setVisit(visit); // Ensure the visit is set
-                        visitServiceRepository.save(vs);
+                    if (isFinished) {
+                        // Fetch services for this doctor from the repository to avoid lazy initialization issues
+                        List<Service> doctorServices = serviceRepository.findByDoctorId(doctor.getId());
+                        if (!doctorServices.isEmpty()) {
+                            Map<Service, VisitService> visitServiceMap = new HashMap<>();
+                            BigDecimal totalCost = BigDecimal.ZERO;
+                            int numServices = faker.number().numberBetween(1, 4);
+                            for (int j = 0; j < numServices; j++) {
+                                Service service = doctorServices.get(faker.number().numberBetween(0, doctorServices.size()));
+                                Visit finalVisit = visit;
+                                visitServiceMap.compute(service, (s, vs) -> {
+                                    if (vs == null) {
+                                        vs = new VisitService();
+                                        vs.setVisit(finalVisit);
+                                        vs.setService(service);
+                                        vs.setQuantity(1);
+                                    } else {
+                                        vs.setQuantity(vs.getQuantity() + 1);
+                                    }
+                                    return vs;
+                                });
+                                totalCost = totalCost.add(service.getPrice());
+                            }
+                            visit.setTotalCost(totalCost);
+                            visitRepository.save(visit);
+                            // Save each VisitService entry
+                            for (VisitService vs : visitServiceMap.values()) {
+                                visitServiceRepository.save(vs);
+                            }
+                        }
+                    } else {
+                        // For unfinished visits, totalCost remains zero
+                        visitRepository.save(visit);
                     }
                 }
                 currentDate = currentDate.plusDays(1);
@@ -193,18 +206,38 @@ public class DataInitializer {
     private void populateAttachments() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
         for (Visit visit : visits) {
-            Attachment attachment = new Attachment();
-            attachment.setVisit(visit);
-            attachment.setFilePath(faker.file().fileName());
-            attachment.setDescription(faker.lorem().sentence());
-            attachmentRepository.save(attachment);
+            try {
+                // Create a random file content
+                String randomContent = faker.lorem().paragraph();
+                byte[] contentBytes = randomContent.getBytes(StandardCharsets.UTF_8);
+                ByteArrayInputStream bais = new ByteArrayInputStream(contentBytes);
+                String randomFileName = UUID.randomUUID().toString() + ".txt";
+
+                // Upload the file to MinIO
+                minioClient.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(randomFileName)
+                                .stream(bais, contentBytes.length, -1)
+                                .contentType("text/plain")
+                                .build()
+                );
+
+                // Create and save the attachment with the generated file name.
+                Attachment attachment = new Attachment();
+                attachment.setVisit(visit);
+                attachment.setFilePath(randomFileName);
+                attachment.setDescription(faker.lorem().sentence());
+                attachmentRepository.save(attachment);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void populateDoctorPatientLinks() {
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
         Set<Patient> patients = new HashSet<>(patientRepository.findAll());
-
         for (Doctor doctor : doctors) {
             for (Patient patient : patients) {
                 DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
@@ -213,34 +246,34 @@ public class DataInitializer {
         }
     }
 
-    // Extra method to add additional VisitService entries (if needed)
+    // Extra method to add additional VisitService entries only for finished visits
     private void populateExtraVisitServices() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
-        List<Service> services = serviceRepository.findAll();
         for (Visit visit : visits) {
-            if (faker.bool().bool()) { // randomly decide whether to add an extra service
-                Service service = services.stream()
-                        .skip(faker.number().numberBetween(0, services.size()))
-                        .findFirst().orElse(null);
-                if (service != null) {
-                    // Check if a VisitService already exists for this service in the visit
-                    Optional<VisitService> existingOpt = visitServiceRepository.findByVisit(visit).stream()
-                            .filter(vs -> vs.getService().getId().equals(service.getId()))
-                            .findFirst();
-                    VisitService vs;
-                    if (existingOpt.isPresent()) {
-                        vs = existingOpt.get();
-                        vs.setQuantity(vs.getQuantity() + 1);
-                    } else {
-                        vs = new VisitService();
-                        vs.setVisit(visit);
-                        vs.setService(service);
-                        vs.setQuantity(1);
-                    }
-                    visitServiceRepository.save(vs);
-                    visit.setTotalCost(visit.getTotalCost().add(service.getPrice()));
-                    visitRepository.save(visit);
+            if (!visit.isFinished()) {
+                continue; // Skip unfinished visits
+            }
+            // Fetch doctor services via the repository to avoid lazy initialization
+            List<Service> doctorServices = serviceRepository.findByDoctorId(visit.getDoctor().getId());
+            if (doctorServices.isEmpty()) continue;
+            if (faker.bool().bool()) { // Randomly decide whether to add an extra service
+                Service service = doctorServices.get(faker.number().numberBetween(0, doctorServices.size()));
+                Optional<VisitService> existingOpt = visitServiceRepository.findByVisit(visit).stream()
+                        .filter(vs -> vs.getService().getId().equals(service.getId()))
+                        .findFirst();
+                VisitService vs;
+                if (existingOpt.isPresent()) {
+                    vs = existingOpt.get();
+                    vs.setQuantity(vs.getQuantity() + 1);
+                } else {
+                    vs = new VisitService();
+                    vs.setVisit(visit);
+                    vs.setService(service);
+                    vs.setQuantity(1);
                 }
+                visitServiceRepository.save(vs);
+                visit.setTotalCost(visit.getTotalCost().add(service.getPrice()));
+                visitRepository.save(visit);
             }
         }
     }

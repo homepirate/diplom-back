@@ -69,9 +69,6 @@ public interface DoctorAPI {
     @DeleteMapping(value = "/visits/cancel")
     ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id);
 
-    @Operation(summary = "Получить описание визита")
-    @GetMapping(value = "/visits/get-notes")
-    ResponseEntity<VisitNotesResponse> getVisitNotes(@RequestParam("id") UUID id);
 
     @Operation(summary = "Завершить визит")
     @PutMapping(value = "/visits/finish")

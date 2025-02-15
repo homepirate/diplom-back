@@ -240,10 +240,7 @@ public class DoctorServiceImpl implements DoctorService {
         visitRepository.deleteById(visitIdRequest.id());
     }
 
-    @Override
-    public VisitNotesResponse getVisitDescription(VisitIdRequest visitIdRequest) {
-        return new VisitNotesResponse(visitRepository.getNotesById(visitIdRequest.id()));
-    }
+
 
     @Override
     public void finishVisit(FinishVisitRequest finishVisitRequest) {
