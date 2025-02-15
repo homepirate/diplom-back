@@ -6,6 +6,7 @@ import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
 import com.example.diplom.notif.NotificationService;
 import com.example.diplom.repositories.*;
+import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
 
@@ -32,9 +33,19 @@ public class DoctorServiceImpl implements DoctorService {
     private VisitServiceRepository visitServiceRepository;
 
     private final NotificationService notificationService;
+    private final AttachmentService attachmentService; // Inject AttachmentService
 
 
-    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, PasswordEncoder passwordEncoder, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, ModelMapper modelMapper, VisitServiceRepository visitServiceRepository, NotificationService notificationService) {
+    public DoctorServiceImpl(DoctorRepository doctorRepository,
+                             VisitRepository visitRepository,
+                             PasswordEncoder passwordEncoder,
+                             ServiceRepository serviceRepository,
+                             SpecializationRepository specializationRepository,
+                             PatientRepository patientRepository,
+                             ModelMapper modelMapper,
+                             VisitServiceRepository visitServiceRepository,
+                             NotificationService notificationService,
+                             AttachmentService attachmentService) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.passwordEncoder = passwordEncoder;
@@ -44,6 +55,7 @@ public class DoctorServiceImpl implements DoctorService {
         this.modelMapper = modelMapper;
         this.visitServiceRepository = visitServiceRepository;
         this.notificationService = notificationService;
+        this.attachmentService = attachmentService;
     }
 
     @Override
@@ -288,15 +300,25 @@ public class DoctorServiceImpl implements DoctorService {
         Map<UUID, Integer> serviceQuantities = visitServices.stream()
                 .collect(Collectors.toMap(vs -> vs.getService().getId(), VisitService::getQuantity));
 
-        // Ensure missing services start with 0 quantity (not 1)
         List<VisitServicesDetailsResponse> services = doctorServices.stream()
                 .map(service -> new VisitServicesDetailsResponse(
                         service.getId(),
                         service.getName(),
                         service.getPrice(),
-                        serviceQuantities.getOrDefault(service.getId(), 0) // Ensure default is 0, not 1
+                        serviceQuantities.getOrDefault(service.getId(), 0)
                 ))
                 .toList();
+
+        // Get the attachment URL using the attachment service
+        String attachmentUrl = null;
+        if (visit.getAttachment() != null) {
+            try {
+                attachmentUrl = attachmentService.getPresignedUrlForAttachment(visit.getAttachment().getId());
+            } catch (Exception e) {
+                e.printStackTrace();
+                // Optionally, you can log or handle the exception as needed.
+            }
+        }
 
         return new VisitDetailsResponse(
                 visit.getId(),
@@ -304,7 +326,8 @@ public class DoctorServiceImpl implements DoctorService {
                 visit.isFinished(),
                 visit.getNotes() != null ? visit.getNotes() : "",
                 visit.getTotalCost(),
-                services
+                services,
+                attachmentUrl
         );
     }
 
@@ -335,13 +358,24 @@ public class DoctorServiceImpl implements DoctorService {
                     ))
                     .collect(Collectors.toList());
 
+            String attachmentUrl = null;
+            if (visit.getAttachment() != null) {
+                try {
+                    attachmentUrl = attachmentService.getPresignedUrlForAttachment(visit.getAttachment().getId());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // Optionally, you can log or handle the exception as needed.
+                }
+            }
+
             return new VisitDetailsResponse(
                     visit.getId(),
                     visit.getVisitDate(),
                     visit.isFinished(),
                     visit.getNotes() != null ? visit.getNotes() : "",
                     visit.getTotalCost(),
-                    serviceResponses
+                    serviceResponses,
+                    attachmentUrl
             );
 
         }).collect(Collectors.toList());

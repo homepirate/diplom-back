@@ -12,8 +12,9 @@ public record VisitDetailsResponse(
         boolean isFinished,
         String notes,
         BigDecimal totalPrice,
-        List<VisitServicesDetailsResponse> services
-) {
-}
+        List<VisitServicesDetailsResponse> services,
+        String attachmentUrl  // New field
+) {}
+
 
 

@@ -11,4 +11,5 @@ public interface AttachmentService {
 
     AttachmentDto addAttachment(UUID patientId, AddAttachmentRequest request) throws IOException;
     String storeFile(MultipartFile file) throws Exception;
+    String getPresignedUrlForAttachment(UUID attachmentId) throws Exception;
 }

@@ -4,6 +4,8 @@ import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.dtos.AttachmentDto;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.http.Method;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class AttachmentServiceImpl implements AttachmentService {
@@ -50,7 +53,6 @@ public class AttachmentServiceImpl implements AttachmentService {
         Visit visit = visitRepository.findByIdAndPatientId(request.visitId(), patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found for the given patient"));
 
-
         String fileName;
         try {
             fileName = storeFile(request.file());
@@ -63,18 +65,18 @@ public class AttachmentServiceImpl implements AttachmentService {
         attachment.setVisit(visit);
         attachment.setFilePath(fileName);
         attachment.setDescription(request.description());
-        Attachment attachment1 = attachmentRepository.save(attachment);
+        Attachment savedAttachment = attachmentRepository.save(attachment);
 
-        return new AttachmentDto(attachment1.getId(), attachment1.getVisit().getId(), attachment1.getFilePath(), attachment1.getDescription());
+        return new AttachmentDto(savedAttachment.getId(), savedAttachment.getVisit().getId(), savedAttachment.getFilePath(), savedAttachment.getDescription());
     }
 
     @Override
     public String storeFile(MultipartFile file) throws Exception {
-        // Нормализуем имя файла
+        // Normalize the file name
         String originalFileName = Paths.get(file.getOriginalFilename()).getFileName().toString();
         String fileName = UUID.randomUUID() + "_" + originalFileName;
 
-        // Загружаем файл в бакет MinIO
+        // Upload file to MinIO
         minioClient.putObject(
                 PutObjectArgs.builder()
                         .bucket(bucketName)
@@ -85,5 +87,19 @@ public class AttachmentServiceImpl implements AttachmentService {
         );
 
         return fileName;
+    }
+
+    @Override
+    public String getPresignedUrlForAttachment(UUID attachmentId) throws Exception {
+        Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .method(Method.GET)
+                        .bucket(bucketName)
+                        .object(attachment.getFilePath())
+                        .expiry(2, TimeUnit.HOURS) // URL valid for 2 hours
+                        .build()
+        );
     }
 }
