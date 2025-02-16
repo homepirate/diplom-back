@@ -216,75 +216,78 @@ public class DataInitializer {
         int counter = 0; // Counter to alternate file types
 
         for (Visit visit : visits) {
-            try {
-                ByteArrayInputStream bais;
-                byte[] fileContent;
-                String randomFileName;
-                String contentType;
+            int attachmentCount = faker.number().numberBetween(0, 3); // Each visit can have 0, 1, or 2 attachments
 
-                // Generate half PDFs, half text files
-                if (counter % 2 == 0) {
-                    // Generate a PDF file
-                    ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream();
-                    try (PDDocument document = new PDDocument()) {
-                        PDPage page = new PDPage();
-                        document.addPage(page);
+            for (int i = 0; i < attachmentCount; i++) {
+                try {
+                    ByteArrayInputStream bais;
+                    byte[] fileContent;
+                    String randomFileName;
+                    String contentType;
 
-                        try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                            contentStream.setFont(PDType1Font.HELVETICA_BOLD, 14);
-                            contentStream.beginText();
-                            contentStream.newLineAtOffset(100, 700);
-                            contentStream.showText("Medical Report for Visit: " + visit.getId());
-                            contentStream.newLineAtOffset(0, -20);
-                            contentStream.showText("Doctor: " + visit.getDoctor().getFullName());
-                            contentStream.newLineAtOffset(0, -20);
-                            contentStream.showText("Patient: " + visit.getPatient().getFullName());
-                            contentStream.newLineAtOffset(0, -20);
-                            contentStream.showText("Notes: " + visit.getNotes());
-                            contentStream.endText();
+                    if (counter % 2 == 0) {
+                        // Generate a PDF file
+                        ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream();
+                        try (PDDocument document = new PDDocument()) {
+                            PDPage page = new PDPage();
+                            document.addPage(page);
+
+                            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                                contentStream.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                                contentStream.beginText();
+                                contentStream.newLineAtOffset(100, 700);
+                                contentStream.showText("Medical Report for Visit: " + visit.getId());
+                                contentStream.newLineAtOffset(0, -20);
+                                contentStream.showText("Doctor: " + visit.getDoctor().getFullName());
+                                contentStream.newLineAtOffset(0, -20);
+                                contentStream.showText("Patient: " + visit.getPatient().getFullName());
+                                contentStream.newLineAtOffset(0, -20);
+                                contentStream.showText("Notes: " + visit.getNotes());
+                                contentStream.endText();
+                            }
+
+                            document.save(pdfOutputStream);
                         }
 
-                        document.save(pdfOutputStream);
+                        fileContent = pdfOutputStream.toByteArray();
+                        randomFileName = UUID.randomUUID().toString() + ".pdf";
+                        contentType = "application/pdf";
+                    } else {
+                        // Generate a TXT file
+                        String randomContent = faker.lorem().paragraph();
+                        fileContent = randomContent.getBytes(StandardCharsets.UTF_8);
+                        randomFileName = UUID.randomUUID().toString() + ".txt";
+                        contentType = "text/plain";
                     }
 
-                    fileContent = pdfOutputStream.toByteArray();
-                    randomFileName = UUID.randomUUID().toString() + ".pdf";
-                    contentType = "application/pdf";
+                    bais = new ByteArrayInputStream(fileContent);
 
-                } else {
-                    // Generate a TXT file
-                    String randomContent = faker.lorem().paragraph();
-                    fileContent = randomContent.getBytes(StandardCharsets.UTF_8);
-                    randomFileName = UUID.randomUUID().toString() + ".txt";
-                    contentType = "text/plain";
+                    // Upload the file to MinIO
+                    minioClient.putObject(
+                            PutObjectArgs.builder()
+                                    .bucket(bucketName)
+                                    .object(randomFileName)
+                                    .stream(bais, fileContent.length, -1)
+                                    .contentType(contentType)
+                                    .build()
+                    );
+
+                    // Save the attachment reference in the database
+                    Attachment attachment = new Attachment();
+                    attachment.setVisit(visit);
+                    attachment.setFilePath(randomFileName);
+                    attachment.setDescription(faker.lorem().sentence());
+                    attachmentRepository.save(attachment);
+
+                    counter++; // Alternate between PDF and TXT
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-
-                bais = new ByteArrayInputStream(fileContent);
-
-                // Upload the file to MinIO
-                minioClient.putObject(
-                        PutObjectArgs.builder()
-                                .bucket(bucketName)
-                                .object(randomFileName)
-                                .stream(bais, fileContent.length, -1)
-                                .contentType(contentType)
-                                .build()
-                );
-
-                // Save the attachment reference in the database
-                Attachment attachment = new Attachment();
-                attachment.setVisit(visit);
-                attachment.setFilePath(randomFileName);
-                attachment.setDescription(faker.lorem().sentence());
-                attachmentRepository.save(attachment);
-
-                counter++; // Increment counter to alternate file type
-
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
     }
+
 
     private void populateDoctorPatientLinks() {
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());

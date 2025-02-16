@@ -309,16 +309,18 @@ public class DoctorServiceImpl implements DoctorService {
                 ))
                 .toList();
 
-        // Get the attachment URL using the attachment service
-        String attachmentUrl = null;
-        if (visit.getAttachment() != null) {
-            try {
-                attachmentUrl = attachmentService.getPresignedUrlForAttachment(visit.getAttachment().getId());
-            } catch (Exception e) {
-                e.printStackTrace();
-                // Optionally, you can log or handle the exception as needed.
-            }
-        }
+        // Get all attachment URLs
+        List<String> attachmentUrls = visit.getAttachments().stream()
+                .map(attachment -> {
+                    try {
+                        return attachmentService.getPresignedUrlForAttachment(attachment.getId());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null; // Handle failures gracefully
+                    }
+                })
+                .filter(Objects::nonNull) // Remove null values if an error occurred
+                .toList();
 
         return new VisitDetailsResponse(
                 visit.getId(),
@@ -327,9 +329,10 @@ public class DoctorServiceImpl implements DoctorService {
                 visit.getNotes() != null ? visit.getNotes() : "",
                 visit.getTotalCost(),
                 services,
-                attachmentUrl
+                attachmentUrls // Return all URLs
         );
     }
+
 
     @Override
     public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
@@ -358,15 +361,17 @@ public class DoctorServiceImpl implements DoctorService {
                     ))
                     .collect(Collectors.toList());
 
-            String attachmentUrl = null;
-            if (visit.getAttachment() != null) {
-                try {
-                    attachmentUrl = attachmentService.getPresignedUrlForAttachment(visit.getAttachment().getId());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    // Optionally, you can log or handle the exception as needed.
-                }
-            }
+            List<String> attachmentUrls = visit.getAttachments().stream()
+                    .map(attachment -> {
+                        try {
+                            return attachmentService.getPresignedUrlForAttachment(attachment.getId());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return null; // Handle failures gracefully
+                        }
+                    })
+                    .filter(Objects::nonNull) // Remove null values if an error occurred
+                    .toList();
 
             return new VisitDetailsResponse(
                     visit.getId(),
@@ -375,7 +380,7 @@ public class DoctorServiceImpl implements DoctorService {
                     visit.getNotes() != null ? visit.getNotes() : "",
                     visit.getTotalCost(),
                     serviceResponses,
-                    attachmentUrl
+                    attachmentUrls // Return all URLs
             );
 
         }).collect(Collectors.toList());

@@ -3,7 +3,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "attachments")
-public class Attachment extends Base{
+public class Attachment extends Base {
 
     private Visit visit;
     private String filePath;
@@ -12,8 +12,8 @@ public class Attachment extends Base{
     public Attachment() {
     }
 
-    @OneToOne(optional = false)
-    @JoinColumn(name = "visit_id", unique = true, nullable = false)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "visit_id", nullable = false)
     public Visit getVisit() {
         return visit;
     }
@@ -31,7 +31,7 @@ public class Attachment extends Base{
         this.filePath = filePath;
     }
 
-    @Column(name="description")
+    @Column(name = "description")
     public String getDescription() {
         return description;
     }
@@ -39,7 +39,6 @@ public class Attachment extends Base{
     public void setDescription(String description) {
         this.description = description;
     }
-
 
     @Override
     public String toString() {

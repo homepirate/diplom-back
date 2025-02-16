@@ -20,7 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -29,7 +29,6 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private final VisitRepository visitRepository;
     private final AttachmentRepository attachmentRepository;
-    private final Path fileStorageLocation;
     private final ModelMapper modelMapper;
     private final MinioClient minioClient;
 
@@ -38,13 +37,13 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Autowired
     public AttachmentServiceImpl(VisitRepository visitRepository,
-                                 AttachmentRepository attachmentRepository, ModelMapper modelMapper, MinioClient minioClient) throws IOException {
+                                 AttachmentRepository attachmentRepository,
+                                 ModelMapper modelMapper,
+                                 MinioClient minioClient) {
         this.visitRepository = visitRepository;
         this.attachmentRepository = attachmentRepository;
         this.modelMapper = modelMapper;
         this.minioClient = minioClient;
-        this.fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
-        Files.createDirectories(this.fileStorageLocation);
     }
 
     @Override
@@ -57,23 +56,38 @@ public class AttachmentServiceImpl implements AttachmentService {
         try {
             fileName = storeFile(request.file());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error storing file", e);
         }
 
-        // Create and save the attachment
+        // Create a new attachment
         Attachment attachment = new Attachment();
         attachment.setVisit(visit);
         attachment.setFilePath(fileName);
         attachment.setDescription(request.description());
+
+        // Save the new attachment
         Attachment savedAttachment = attachmentRepository.save(attachment);
 
-        return new AttachmentDto(savedAttachment.getId(), savedAttachment.getVisit().getId(), savedAttachment.getFilePath(), savedAttachment.getDescription());
+        // Ensure the visit correctly tracks multiple attachments
+        Set<Attachment> visitAttachments = visit.getAttachments();
+        visitAttachments.add(savedAttachment);
+        visit.setAttachments(visitAttachments);
+        visitRepository.save(visit); // Update visit with the new attachment
+
+        return new AttachmentDto(savedAttachment.getId(),
+                savedAttachment.getVisit().getId(),
+                savedAttachment.getFilePath(),
+                savedAttachment.getDescription());
     }
 
     @Override
     public String storeFile(MultipartFile file) throws Exception {
         // Normalize the file name
-        String originalFileName = Paths.get(file.getOriginalFilename()).getFileName().toString();
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null) {
+            throw new RuntimeException("Invalid file name");
+        }
+
         String fileName = UUID.randomUUID() + "_" + originalFileName;
 
         // Upload file to MinIO

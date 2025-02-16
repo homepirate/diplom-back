@@ -13,7 +13,7 @@ public record VisitDetailsResponse(
         String notes,
         BigDecimal totalPrice,
         List<VisitServicesDetailsResponse> services,
-        String attachmentUrl  // New field
+        List<String> attachmentUrls // Updated to store multiple URLs
 ) {}
 
 

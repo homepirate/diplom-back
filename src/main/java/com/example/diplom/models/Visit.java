@@ -15,7 +15,7 @@ public class Visit extends Base {
     private LocalDateTime visitDate;
     private String notes;
     private Set<VisitService> visitServices = new HashSet<>();
-    private Attachment attachment;
+    private Set<Attachment> attachments = new HashSet<>();
     private boolean isFinished;
     private BigDecimal totalCost;
 
@@ -69,20 +69,13 @@ public class Visit extends Base {
         this.visitServices = visitServices;
     }
 
-    @OneToOne(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
-    public Attachment getAttachment() {
-        return attachment;
+    @OneToMany(mappedBy = "visit", cascade = CascadeType.ALL, orphanRemoval = true)
+    public Set<Attachment> getAttachments() {
+        return attachments;
     }
 
-    public void setAttachment(Attachment attachment) {
-        if (attachment == null) {
-            if (this.attachment != null) {
-                this.attachment.setVisit(null);
-            }
-        } else {
-            attachment.setVisit(this);
-        }
-        this.attachment = attachment;
+    public void setAttachments(Set<Attachment> attachments) {
+        this.attachments = attachments;
     }
 
     @Column(name = "is_finished", nullable = false)
