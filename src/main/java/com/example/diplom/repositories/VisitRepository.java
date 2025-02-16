@@ -11,7 +11,17 @@ import java.util.UUID;
 
 @Repository
 public interface VisitRepository extends JpaRepository<Visit, UUID> {
-    List<Visit> findByDoctorId(UUID doctorId);
+
+    @Query("SELECT v FROM Visit v WHERE v.doctor.id = :doctorId " +
+            "AND EXTRACT(MONTH FROM v.visitDate) = :month " +
+            "AND EXTRACT(YEAR FROM v.visitDate) = :year")
+    List<Visit> findByDoctorIdAndMonthYear(UUID doctorId, int month, int year);
+
+    @Query("SELECT v FROM Visit v WHERE v.doctor.id = :doctorId " +
+            "AND CAST(v.visitDate AS DATE) = CAST(:date AS DATE)")
+    List<Visit> findByDoctorIdAndDate(UUID doctorId, String date);
+
+
 
     Optional<Visit> findByIdAndPatientId(UUID visitId, UUID patientId);
 

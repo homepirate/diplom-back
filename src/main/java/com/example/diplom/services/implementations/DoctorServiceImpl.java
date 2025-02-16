@@ -76,11 +76,27 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     @Override
-    public List<VisitDto> getDoctorVisitDates(UUID doctorId) {
+    public List<VisitDto> getDoctorVisitDates(UUID doctorId, int month, int year) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
 
-        return visitRepository.findByDoctorId(doctor.getId()).stream()
+        return visitRepository.findByDoctorIdAndMonthYear(doctorId, month, year).stream()
+                .map(visit -> {
+                    VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
+                    visitDto.setFinished(visit.isFinished());
+                    visitDto.setTotalCost(visit.getTotalCost());
+                    visitDto.setNotes(visit.getNotes());
+                    return visitDto;
+                })
+                .toList();
+    }
+
+    @Override
+    public List<VisitDto> getDoctorVisitDatesByDay(UUID doctorId, String date) {
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+
+        return visitRepository.findByDoctorIdAndDate(doctorId, date).stream()
                 .map(visit -> {
                     VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
                     visitDto.setFinished(visit.isFinished());

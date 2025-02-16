@@ -33,9 +33,18 @@ public interface DoctorAPI {
     @GetMapping(value = "/{page}")
     DoctorResponse getAllDoctors(@PathVariable("page") int page);
 
-    @Operation(summary = "Получить даты и время всех визитов врача")
+    @Operation(summary = "Получить визиты врача за указанный месяц")
     @GetMapping(value = "/visits/dates")
-    List<VisitDateResponse> getDoctorVisitDates();
+    List<VisitDateResponse> getDoctorVisitDates(
+            @RequestParam("month") int month,
+            @RequestParam("year") int year
+    );
+    @Operation(summary = "Получить визиты врача за указанный день")
+    @GetMapping(value = "/visits/day")
+    List<VisitDateResponse> getDoctorVisitDatesByDay(
+            @RequestParam("date") String date
+    );
+
 
     @Operation(summary = "Создать услугу для доктора")
     @PostMapping(value = "/services")

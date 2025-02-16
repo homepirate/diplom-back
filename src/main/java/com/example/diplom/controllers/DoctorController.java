@@ -34,8 +34,8 @@ public class DoctorController implements DoctorAPI {
     }
 
     @Override
-    public List<VisitDateResponse> getDoctorVisitDates() {
-        List<VisitDto> visits = doctorService.getDoctorVisitDates(getDoctorId());
+    public List<VisitDateResponse> getDoctorVisitDates(int month, int year) {
+        List<VisitDto> visits = doctorService.getDoctorVisitDates(getDoctorId(), month, year);
 
         return visits.stream()
                 .map(visit -> new VisitDateResponse(
@@ -47,6 +47,22 @@ public class DoctorController implements DoctorAPI {
                 ))
                 .collect(Collectors.toList());
     }
+    @Override
+    public List<VisitDateResponse> getDoctorVisitDatesByDay(String date) {
+        List<VisitDto> visits = doctorService.getDoctorVisitDatesByDay(getDoctorId(), date);
+
+        return visits.stream()
+                .map(visit -> new VisitDateResponse(
+                        visit.getId(),
+                        visit.getVisitDate(),
+                        visit.getPatient() != null ? visit.getPatient().getFullName() : "Unknown",
+                        visit.getNotes(),
+                        visit.isFinished()
+                ))
+                .collect(Collectors.toList());
+    }
+
+
 
 
     @Override
