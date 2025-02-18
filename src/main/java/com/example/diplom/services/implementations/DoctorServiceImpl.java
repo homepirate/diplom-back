@@ -1,6 +1,5 @@
 package com.example.diplom.services.implementations;
 
-
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
@@ -9,9 +8,9 @@ import com.example.diplom.repositories.*;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
-
 import com.example.diplom.services.dtos.VisitDto;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,16 +24,14 @@ public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final VisitRepository visitRepository;
-    private final PasswordEncoder passwordEncoder;
     private final ServiceRepository serviceRepository;
     private final SpecializationRepository specializationRepository;
     private final PatientRepository patientRepository;
+    private final VisitServiceRepository visitServiceRepository;
+    private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
-    private VisitServiceRepository visitServiceRepository;
-
     private final NotificationService notificationService;
-    private final AttachmentService attachmentService; // Inject AttachmentService
-
+    private final AttachmentService attachmentService;
 
     public DoctorServiceImpl(DoctorRepository doctorRepository,
                              VisitRepository visitRepository,
@@ -48,95 +45,168 @@ public class DoctorServiceImpl implements DoctorService {
                              AttachmentService attachmentService) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
-        this.passwordEncoder = passwordEncoder;
         this.serviceRepository = serviceRepository;
         this.specializationRepository = specializationRepository;
         this.patientRepository = patientRepository;
-        this.modelMapper = modelMapper;
         this.visitServiceRepository = visitServiceRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.modelMapper = modelMapper;
         this.notificationService = notificationService;
         this.attachmentService = attachmentService;
     }
 
+    // -------------------------------------------------
+    // No special ownership check for registering a new doctor
+    // -------------------------------------------------
     @Override
     public void registerDoctor(DoctorRegisterRequest doctor) {
         Specialization specialization = specializationRepository
                 .findByName(doctor.specialization())
                 .orElseThrow(() -> new IllegalArgumentException("Specialization not found: " + doctor.specialization()));
 
-        DoctorRegistrationDto doctorDto = new DoctorRegistrationDto(doctor.password(), null, doctor.email(),
-                doctor.phone(), doctor.fullName(), specialization, null);
-
+        DoctorRegistrationDto doctorDto = new DoctorRegistrationDto(
+                doctor.password(), null, doctor.email(),
+                doctor.phone(), doctor.fullName(), specialization, null
+        );
         doctorDto.setPassword(passwordEncoder.encode(doctorDto.getPassword()));
         doctorDto.setRole("ROLE_DOCTOR");
+
+        // Generate the unique code
         String uniqueCode = String.valueOf(new Random().nextInt(8999999) + 1000000);
         doctorDto.setUniqueCode(uniqueCode);
 
         doctorRepository.save(modelMapper.map(doctorDto, Doctor.class));
     }
 
+    // -------------------------------------------------
+    // GET VISITS BY MONTH, BY DAY
+    // -------------------------------------------------
+
+    /**
+     * The only requirement is that the #doctorId matches the JWT's doctorId.
+     */
     @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public List<VisitDto> getDoctorVisitDates(UUID doctorId, int month, int year) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
         return visitRepository.findByDoctorIdAndMonthYear(doctorId, month, year).stream()
                 .map(visit -> {
-                    VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
-                    visitDto.setFinished(visit.isFinished());
-                    visitDto.setTotalCost(visit.getTotalCost());
-                    visitDto.setNotes(visit.getNotes());
-                    return visitDto;
+                    VisitDto dto = modelMapper.map(visit, VisitDto.class);
+                    dto.setFinished(visit.isFinished());
+                    dto.setTotalCost(visit.getTotalCost());
+                    dto.setNotes(visit.getNotes());
+                    return dto;
                 })
                 .toList();
     }
 
     @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public List<VisitDto> getDoctorVisitDatesByDay(UUID doctorId, String date) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
         return visitRepository.findByDoctorIdAndDate(doctorId, date).stream()
                 .map(visit -> {
-                    VisitDto visitDto = modelMapper.map(visit, VisitDto.class);
-                    visitDto.setFinished(visit.isFinished());
-                    visitDto.setTotalCost(visit.getTotalCost());
-                    visitDto.setNotes(visit.getNotes());
-                    return visitDto;
+                    VisitDto dto = modelMapper.map(visit, VisitDto.class);
+                    dto.setFinished(visit.isFinished());
+                    dto.setTotalCost(visit.getTotalCost());
+                    dto.setNotes(visit.getNotes());
+                    return dto;
                 })
                 .toList();
     }
 
-
+    // -------------------------------------------------
+    // CREATE SERVICE
+    // -------------------------------------------------
     @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
-        // Check if the doctor already has a service with the same name
-        Optional<com.example.diplom.models.Service> existingService = serviceRepository.findByDoctorIdAndName(doctorId, serviceRequest.name());
-        if (existingService.isPresent()) {
-            throw new IllegalArgumentException("A service with this name already exists for this doctor.");
+        // check if name exists
+        Optional<com.example.diplom.models.Service> existing = serviceRepository.findByDoctorIdAndName(doctorId, serviceRequest.name());
+        if (existing.isPresent()) {
+            throw new IllegalArgumentException("Service with that name already exists.");
         }
 
-        com.example.diplom.models.Service service = new com.example.diplom.models.Service();
-        service.setName(serviceRequest.name());
-        service.setPrice(serviceRequest.price());
-        service.setDoctor(doctor);
+        com.example.diplom.models.Service newService = new com.example.diplom.models.Service();
+        newService.setName(serviceRequest.name());
+        newService.setPrice(serviceRequest.price());
+        newService.setDoctor(doctor);
 
+        serviceRepository.save(newService);
+    }
+
+    // -------------------------------------------------
+    // GET DOCTOR SERVICES
+    // -------------------------------------------------
+    @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    public List<ServiceResponse> getDoctorServices(UUID doctorId) {
+        // Just ensures the doc from JWT == #doctorId
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
+
+        return serviceRepository.findByDoctorId(doctorId)
+                .stream()
+                .map(s -> new ServiceResponse(s.getName(), s.getPrice()))
+                .toList();
+    }
+
+    // -------------------------------------------------
+    // UPDATE SERVICE PRICE
+    // -------------------------------------------------
+    @Override
+    @PreAuthorize(
+            "@doctorAuthz.hasDoctorServiceOwnership(authentication, #doctorId, #updateServiceRequest.name())"
+    )
+    public void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest) {
+        if (updateServiceRequest.price() == null || updateServiceRequest.price().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price must be positive");
+        }
+
+        com.example.diplom.models.Service service = serviceRepository.findByDoctorIdAndName(doctorId, updateServiceRequest.name())
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found with name '"
+                        + updateServiceRequest.name() + "' for this doctor."));
+
+        service.setPrice(updateServiceRequest.price());
         serviceRepository.save(service);
     }
 
-
+    // -------------------------------------------------
+    // GET DOCTOR PATIENTS
+    // -------------------------------------------------
     @Override
-    public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
-        // Найти доктора
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    public List<PatientResponse> getDoctorPatients(UUID doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
-        // Найти пациента
+        return doctor.getDoctorPatients().stream()
+                .map(dp -> new PatientResponse(
+                        dp.getPatient().getFullName(),
+                        dp.getPatient().getBirthDate(),
+                        dp.getPatient().getId()
+                ))
+                .toList();
+    }
+
+    // -------------------------------------------------
+    // CREATE VISIT
+    // -------------------------------------------------
+    @Override
+    @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #visitRequest.patientId())")
+    public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
+        // We already validated doc–patient link via @PreAuthorize
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
         Patient patient = patientRepository.findById(visitRequest.patientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id " + visitRequest.patientId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + visitRequest.patientId()));
 
         Visit visit = new Visit();
         visit.setDoctor(doctor);
@@ -145,192 +215,119 @@ public class DoctorServiceImpl implements DoctorService {
         visit.setNotes(visitRequest.notes());
         visit.setFinished(false);
         visit.setTotalCost(BigDecimal.ZERO);
-        Visit savedVisit = visitRepository.save(visit);
 
+        Visit saved = visitRepository.save(visit);
+        notificationService.sendVisitCreatedNotification(patient.getEmail(), saved.getVisitDate().toString());
 
-        notificationService.sendVisitCreatedNotification(
-                patient.getEmail(),
-                savedVisit.getVisitDate().toString()
-        );
-
-
-        return new CreateVisitResponse(
-                savedVisit.getVisitDate(),
-                savedVisit.getId()
-        );
+        return new CreateVisitResponse(saved.getVisitDate(), saved.getId());
     }
 
-    private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
-        // Get the existing visit services, keyed by service name
-        List<VisitService> existingVisitServices = visitServiceRepository.findByVisit(visit);
-        Map<String, VisitService> existingServiceMap = existingVisitServices.stream()
-                .collect(Collectors.toMap(vs -> vs.getService().getName(), Function.identity()));
-
-        // Process each service update from the client
-        for (ServiceUpdateRequest update : serviceUpdates) {
-            if (update.quantity() < 0) {
-                throw new IllegalArgumentException("Service quantity cannot be negative for service: " + update.name());
-            }
-
-            // Look up the service entity using the doctor’s ID and service name.
-            com.example.diplom.models.Service service = serviceRepository
-                    .findByDoctorIdAndName(visit.getDoctor().getId(), update.name())
-                    .orElseThrow(() -> new ResourceNotFoundException("Service not found with name: " + update.name()));
-
-            if (existingServiceMap.containsKey(update.name())) {
-                // Update the existing VisitService record with the new quantity.
-                VisitService vs = existingServiceMap.get(update.name());
-                vs.setQuantity(update.quantity());
-                visitServiceRepository.save(vs);
-            } else {
-                // If no record exists and the final quantity is > 0, create a new record.
-                if (update.quantity() > 0) {
-                    VisitService newVs = new VisitService();
-                    newVs.setVisit(visit);
-                    newVs.setService(service);
-                    newVs.setQuantity(update.quantity());
-                    visitServiceRepository.save(newVs);
-                }
-            }
-        }
-    }
-
-
+    // -------------------------------------------------
+    // REARRANGE VISIT
+    // -------------------------------------------------
     @Override
-    public List<ServiceResponse> getDoctorServices(UUID doctorId) {
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
-
-        return serviceRepository.findByDoctorId(doctorId).stream()
-                .map(service -> new ServiceResponse(service.getName(), service.getPrice()))
-                .toList();
-    }
-
-    @Override
-    public void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest) {
-        if (updateServiceRequest.price() == null || updateServiceRequest.price().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Price must be a positive value.");
-        }
-
-        // Find the service by doctor ID and name
-        com.example.diplom.models.Service service = serviceRepository.findByDoctorIdAndName(doctorId, updateServiceRequest.name())
-                .orElseThrow(() -> new ResourceNotFoundException("Service not found with name '" + updateServiceRequest.name() + "' for this doctor."));
-
-        // Update the price
-        service.setPrice(updateServiceRequest.price());
-
-        // Save the updated service
-        serviceRepository.save(service);
-    }
-
-    @Override
-    public List<PatientResponse> getDoctorPatients(UUID doctorId) {
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id " + doctorId));
-
-        return doctor.getDoctorPatients().stream()
-                .map(doctorPatient -> new PatientResponse(
-                        doctorPatient.getPatient().getFullName(),
-                        doctorPatient.getPatient().getBirthDate(),
-                        doctorPatient.getPatientId()
-                ))
-                .toList();
-    }
-
-    @Override
+    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #rearrangeRequest.visitId())")
     public void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest) {
+        // If we get in here, we know doc owns the visit
         Visit visit = visitRepository.findById(rearrangeRequest.visitId())
-                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + rearrangeRequest.visitId()));
-
-        if (!visit.getDoctor().getId().equals(doctorId)) {
-            throw new SecurityException("Doctor is not authorized to modify this visit.");
-        }
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + rearrangeRequest.visitId()));
 
         visit.setVisitDate(rearrangeRequest.newVisitDate());
         visitRepository.save(visit);
 
-        // Notify patient about rearrangement
-        notificationService.sendVisitCreatedNotification(
-                visit.getPatient().getEmail(),
-                visit.getVisitDate().toString()
-        );
+        // notify patient
+        notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
     }
 
-    @Override
-    public void cancelVisit(VisitIdRequest visitIdRequest) {
+    // -------------------------------------------------
+    // CANCEL VISIT
+    // -------------------------------------------------
+    /**
+     * Notice that your cancelVisit method doesn't currently accept the doctorId
+     * as a parameter. So either add it or you can do a custom PreAuthorize check
+     * that extracts the docId from the JWT inside doctorAuthz.
+     *
+     * We'll add the parameter for consistency:
+     */
+    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
+    public void cancelVisit(UUID doctorId, VisitIdRequest visitIdRequest) {
         if (!visitRepository.existsById(visitIdRequest.id())) {
             throw new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id());
         }
         visitRepository.deleteById(visitIdRequest.id());
     }
 
-
+    // -------------------------------------------------
+    // FINISH VISIT
+    // -------------------------------------------------
     @Override
-    public void finishVisit(FinishVisitRequest finishVisitRequest) {
-        // Retrieve the visit
-        Visit visit = visitRepository.findById(finishVisitRequest.id())
-                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + finishVisitRequest.id()));
+    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #finishVisitRequest.id())")
+    public void finishVisit(UUID doctorId,FinishVisitRequest finishVisitRequest) {
+        // We must also change signature to pass doctorId:
+        // public void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest) {...}
+        //
+        // For brevity, let's assume your method is now:
+        //    finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest)
 
-        // Require at least one service update
+        Visit visit = visitRepository.findById(finishVisitRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found"));
+
         if (finishVisitRequest.services() == null || finishVisitRequest.services().isEmpty()) {
-            throw new IllegalArgumentException("At least one service must be provided to finish the visit.");
+            throw new IllegalArgumentException("At least one service must be provided.");
         }
 
         visit.setFinished(true);
-
-        // Update (or create) visit service records based on the final quantities provided
         updateVisitServices(visit, finishVisitRequest.services());
 
-        // Update the visit notes if they have changed
         if (!finishVisitRequest.notes().equals(visit.getNotes())) {
             visit.setNotes(finishVisitRequest.notes());
         }
 
-        // Recalculate the total cost based on the updated service quantities
         BigDecimal totalCost = visitServiceRepository.findByVisit(visit).stream()
                 .map(vs -> vs.getService().getPrice().multiply(BigDecimal.valueOf(vs.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         visit.setTotalCost(totalCost);
 
-        // Save the updated visit
         visitRepository.save(visit);
     }
 
+    // -------------------------------------------------
+    // GET FINISH VISIT DATA
+    // -------------------------------------------------
     @Override
-    public VisitDetailsResponse getFinishVisitData(VisitIdRequest visitIdRequest) {
+    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
+    public VisitDetailsResponse getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest) {
+        // Change signature to: getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest)
+        // for consistency with the same pattern
         Visit visit = visitRepository.findById(visitIdRequest.id())
-                .orElseThrow(() -> new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id()));
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + visitIdRequest.id()));
 
-        UUID doctorId = visit.getDoctor().getId();
-        List<com.example.diplom.models.Service> doctorServices = serviceRepository.findByDoctorId(doctorId);
-
-        // Fetch services with their actual quantities for this visit
+        List<com.example.diplom.models.Service> docServices = serviceRepository.findByDoctorId(doctorId);
         List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
 
-        // Build a lookup map: serviceId -> quantity
         Map<UUID, Integer> serviceQuantities = visitServices.stream()
                 .collect(Collectors.toMap(vs -> vs.getService().getId(), VisitService::getQuantity));
 
-        List<VisitServicesDetailsResponse> services = doctorServices.stream()
-                .map(service -> new VisitServicesDetailsResponse(
-                        service.getId(),
-                        service.getName(),
-                        service.getPrice(),
-                        serviceQuantities.getOrDefault(service.getId(), 0)
+        List<VisitServicesDetailsResponse> services = docServices.stream()
+                .map(s -> new VisitServicesDetailsResponse(
+                        s.getId(),
+                        s.getName(),
+                        s.getPrice(),
+                        serviceQuantities.getOrDefault(s.getId(), 0)
                 ))
                 .toList();
 
-        // Get all attachment URLs
+        // attachments
         List<String> attachmentUrls = visit.getAttachments().stream()
-                .map(attachment -> {
+                .map(a -> {
                     try {
-                        return attachmentService.getPresignedUrlForAttachment(attachment.getId());
+                        return attachmentService.getPresignedUrlForAttachment(a.getId());
                     } catch (Exception e) {
                         e.printStackTrace();
-                        return null; // Handle failures gracefully
+                        return null;
                     }
                 })
-                .filter(Objects::nonNull) // Remove null values if an error occurred
+                .filter(Objects::nonNull)
                 .toList();
 
         return new VisitDetailsResponse(
@@ -340,62 +337,58 @@ public class DoctorServiceImpl implements DoctorService {
                 visit.getNotes() != null ? visit.getNotes() : "",
                 visit.getTotalCost(),
                 services,
-                attachmentUrls // Return all URLs
+                attachmentUrls
         );
     }
 
-
+    // -------------------------------------------------
+    // GET PATIENT MEDICAL CARD
+    // -------------------------------------------------
     @Override
+    @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #patientId)")
     public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
-        // Retrieve the patient entity from the repository.
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id " + patientId));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + patientId));
 
-        // Optionally, verify that the patient is linked to the doctor (for authorization)
-        // e.g., check if there are visits or if the doctor is present in the patient’s doctorPatients set.
-
-        // Fetch visits for this patient that belong to the given doctor.
+        // All visits for this doc + that patient
         List<Visit> visits = visitRepository.findByPatientIdAndDoctorId(patientId, doctorId);
+        // map them
+        List<VisitDetailsResponse> visitDetails = visits.stream()
+                .map(visit -> {
+                    List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
 
-        // Map each visit to a VisitDetailResponse.
-        List<VisitDetailsResponse> visitDetails = visits.stream().map(visit -> {
-            // For each visit, get the list of associated services.
-            List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
+                    List<VisitServicesDetailsResponse> serviceResponses = vsList.stream()
+                            .map(vs -> new VisitServicesDetailsResponse(
+                                    vs.getServiceId(),
+                                    vs.getService().getName(),
+                                    vs.getService().getPrice(),
+                                    vs.getQuantity()
+                            ))
+                            .toList();
 
-            // Map the VisitService objects to VisitServiceResponse.
-            List<VisitServicesDetailsResponse> serviceResponses = visitServices.stream()
-                    .map(vs -> new VisitServicesDetailsResponse(
-                            vs.getServiceId(),
-                            vs.getService().getName(),
-                            vs.getService().getPrice(),
-                            vs.getQuantity()
-                    ))
-                    .collect(Collectors.toList());
+                    List<String> attachmentUrls = visit.getAttachments().stream()
+                            .map(a -> {
+                                try {
+                                    return attachmentService.getPresignedUrlForAttachment(a.getId());
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .toList();
 
-            List<String> attachmentUrls = visit.getAttachments().stream()
-                    .map(attachment -> {
-                        try {
-                            return attachmentService.getPresignedUrlForAttachment(attachment.getId());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            return null; // Handle failures gracefully
-                        }
-                    })
-                    .filter(Objects::nonNull) // Remove null values if an error occurred
-                    .toList();
-
-            return new VisitDetailsResponse(
-                    visit.getId(),
-                    visit.getVisitDate(),
-                    visit.isFinished(),
-                    visit.getNotes() != null ? visit.getNotes() : "",
-                    visit.getTotalCost(),
-                    serviceResponses,
-                    attachmentUrls // Return all URLs
-            );
-
-        }).collect(Collectors.toList());
-
+                    return new VisitDetailsResponse(
+                            visit.getId(),
+                            visit.getVisitDate(),
+                            visit.isFinished(),
+                            visit.getNotes() != null ? visit.getNotes() : "",
+                            visit.getTotalCost(),
+                            serviceResponses,
+                            attachmentUrls
+                    );
+                })
+                .toList();
 
         return new PatientMedCardResponse(
                 patient.getId(),
@@ -407,6 +400,34 @@ public class DoctorServiceImpl implements DoctorService {
         );
     }
 
+    // -------------------------------------------------
+    // HELPER to handle updates of visit-services
+    // -------------------------------------------------
+    private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
+        List<VisitService> existing = visitServiceRepository.findByVisit(visit);
+        Map<String, VisitService> existingMap = existing.stream()
+                .collect(Collectors.toMap(vs -> vs.getService().getName(), Function.identity()));
+
+        for (ServiceUpdateRequest update : serviceUpdates) {
+            if (update.quantity() < 0) {
+                throw new IllegalArgumentException("Quantity cannot be negative for service: " + update.name());
+            }
+            com.example.diplom.models.Service service = serviceRepository
+                    .findByDoctorIdAndName(visit.getDoctor().getId(), update.name())
+                    .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + update.name()));
+
+            if (existingMap.containsKey(update.name())) {
+                VisitService vs = existingMap.get(update.name());
+                vs.setQuantity(update.quantity());
+                visitServiceRepository.save(vs);
+            } else if (update.quantity() > 0) {
+                VisitService newVs = new VisitService();
+                newVs.setVisit(visit);
+                newVs.setService(service);
+                newVs.setQuantity(update.quantity());
+                visitServiceRepository.save(newVs);
+            }
+        }
+    }
 
 }
-

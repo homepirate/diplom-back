@@ -45,7 +45,6 @@ public interface DoctorAPI {
             @RequestParam("date") String date
     );
 
-
     @Operation(summary = "Создать услугу для доктора")
     @PostMapping(value = "/services")
     ResponseEntity<?> createService(@RequestBody CreateServiceRequest serviceRequest);
@@ -53,7 +52,6 @@ public interface DoctorAPI {
     @Operation(summary = "Получить все услуги для доктора")
     @GetMapping(value = "/services")
     ResponseEntity<List<ServiceResponse>> getDoctorServices();
-
 
     @Operation(summary = "Создать визит для пациента")
     @PostMapping(value = "/visits")
@@ -78,11 +76,9 @@ public interface DoctorAPI {
     @DeleteMapping(value = "/visits/cancel")
     ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id);
 
-
     @Operation(summary = "Завершить визит")
     @PutMapping(value = "/visits/finish")
     ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest);
-
 
     @Operation(summary = "Получить данные для завершения визита")
     @GetMapping("/visits/finish-data")

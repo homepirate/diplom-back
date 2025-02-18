@@ -9,7 +9,9 @@ import java.util.UUID;
 public interface DoctorService {
     void registerDoctor(DoctorRegisterRequest doctor);
 
-    List<VisitDto> getDoctorVisitDates(UUID doctorId,int month,int year);
+    List<VisitDto> getDoctorVisitDates(UUID doctorId, int month, int year);
+
+    List<VisitDto> getDoctorVisitDatesByDay(UUID doctorId, String date);
 
     void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest);
 
@@ -17,22 +19,17 @@ public interface DoctorService {
 
     List<ServiceResponse> getDoctorServices(UUID doctorId);
 
-    List<PatientResponse> getDoctorPatients(UUID doctorId);
-
     void updateServicePrice(UUID doctorId, UpdateServiceRequest updateServiceRequest);
+
+    List<PatientResponse> getDoctorPatients(UUID doctorId);
 
     void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest);
 
-    void cancelVisit(VisitIdRequest visitIdRequest);
+    void cancelVisit(UUID doctorId, VisitIdRequest visitIdRequest);
 
+    void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest);
 
-
-    void finishVisit(FinishVisitRequest finishVisitRequest);
-
-    VisitDetailsResponse getFinishVisitData(VisitIdRequest visitIdRequest);
+    VisitDetailsResponse getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest);
 
     PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId);
-
-
-    List<VisitDto> getDoctorVisitDatesByDay(UUID doctorId, String date);
 }

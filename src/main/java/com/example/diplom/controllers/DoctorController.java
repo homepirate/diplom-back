@@ -47,6 +47,7 @@ public class DoctorController implements DoctorAPI {
                 ))
                 .collect(Collectors.toList());
     }
+
     @Override
     public List<VisitDateResponse> getDoctorVisitDatesByDay(String date) {
         List<VisitDto> visits = doctorService.getDoctorVisitDatesByDay(getDoctorId(), date);
@@ -63,15 +64,12 @@ public class DoctorController implements DoctorAPI {
     }
 
 
-
-
     @Override
     public ResponseEntity<?> createService(CreateServiceRequest serviceRequest) {
         UUID doctorId = getDoctorId();
         doctorService.createServiceForDoctor(doctorId, serviceRequest);
         CreateServiceResponse createServiceResponse = new CreateServiceResponse("CREATED", "Service created");
         return ResponseEntity.status(HttpStatus.CREATED).body(createServiceResponse);
-
     }
 
     @Override
@@ -120,20 +118,20 @@ public class DoctorController implements DoctorAPI {
 
     @Override
     public ResponseEntity<StatusResponse> cancelVisit(@RequestParam("id") UUID id) {
-        doctorService.cancelVisit(new VisitIdRequest(id));
+        doctorService.cancelVisit(getDoctorId(), new VisitIdRequest(id));
         return ResponseEntity.ok(new StatusResponse("UPDATED", "Visit cancelled"));
     }
 
 
     @Override
     public ResponseEntity<StatusResponse> finishVisit(@RequestBody FinishVisitRequest finishVisitRequest) {
-        doctorService.finishVisit(finishVisitRequest);
+        doctorService.finishVisit(getDoctorId(),finishVisitRequest);
         return ResponseEntity.ok(new StatusResponse("UPDATE", "Visit finished"));
     }
 
     @Override
     public ResponseEntity<VisitDetailsResponse> getFinishVisitData(@RequestParam("id") UUID id) {
-        VisitDetailsResponse response = doctorService.getFinishVisitData(new VisitIdRequest(id));
+        VisitDetailsResponse response = doctorService.getFinishVisitData(getDoctorId(),new VisitIdRequest(id));
         return ResponseEntity.ok(response);
     }
 
@@ -143,8 +141,6 @@ public class DoctorController implements DoctorAPI {
         PatientMedCardResponse response = doctorService.getPatientMedicalCard(doctorId, patientId);
         return ResponseEntity.ok(response);
     }
-
-
 
 
 }
