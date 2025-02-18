@@ -138,15 +138,13 @@ public class DoctorServiceImpl implements DoctorService {
         Patient patient = patientRepository.findById(visitRequest.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id " + visitRequest.patientId()));
 
-        // Создать новую сущность визита
         Visit visit = new Visit();
         visit.setDoctor(doctor);
         visit.setPatient(patient);
         visit.setVisitDate(visitRequest.visitDate());
-        visit.setNotes(visitRequest.notes()); // Заметки могут быть `null`
+        visit.setNotes(visitRequest.notes());
         visit.setFinished(false);
         visit.setTotalCost(BigDecimal.ZERO);
-        // Сохранить визит
         Visit savedVisit = visitRepository.save(visit);
 
 
@@ -157,10 +155,8 @@ public class DoctorServiceImpl implements DoctorService {
 
 
         return new CreateVisitResponse(
-//                savedVisit.getId(),
-//                patient.getId(),
-//                doctor.getId(),
-                savedVisit.getVisitDate()
+                savedVisit.getVisitDate(),
+                savedVisit.getId()
         );
     }
 
@@ -267,7 +263,6 @@ public class DoctorServiceImpl implements DoctorService {
         }
         visitRepository.deleteById(visitIdRequest.id());
     }
-
 
 
     @Override
