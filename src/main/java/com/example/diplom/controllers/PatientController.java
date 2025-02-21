@@ -60,8 +60,10 @@ public class PatientController implements PatientAPI {
 
     @Override
     public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient() {
+        logger.info("Получение списка визитов пациента");
         UUID patientId = getPatientId();
         List<PatientVisitDetailsResponse> visits = patientService.getVisitsByPatient(patientId);
+        logger.debug("Список визитов пациента: {}", visits);
         return ResponseEntity.ok(visits);
     }
 
