@@ -2,6 +2,8 @@ package com.example.diplom.controllers;
 
 import com.example.diplom.models.Specialization;
 import com.example.diplom.repositories.SpecializationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +14,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/specializations")
 public class SpecializationsController {
+    private static final Logger logger = LoggerFactory.getLogger(SpecializationsController.class);
+
     private final SpecializationRepository specializationRepository;
 
     @Autowired
@@ -21,6 +25,9 @@ public class SpecializationsController {
 
     @GetMapping()
     public List<String> getAllSpecializations() {
-        return specializationRepository.getAllNames();
+        logger.info("Запрос списка специализаций");
+        List<String> specializations = specializationRepository.getAllNames();
+        logger.debug("Найдено специализаций: {}", specializations.size());
+        return specializations;
     }
 }
