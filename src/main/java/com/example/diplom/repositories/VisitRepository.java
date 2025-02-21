@@ -31,7 +31,5 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
 
     List<Visit> findByPatientIdAndDoctorId(UUID patientId, UUID doctorId);
 
-
-
-
+    List<Visit> findByPatientId(UUID patientId);
 }

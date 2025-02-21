@@ -2,10 +2,12 @@ package com.example.diplom.controllers;
 
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.controllers.RR.PatientResponse;
+import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
 import com.example.diplom.controllers.interfaces.PatientAPI;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.exceptions.StatusResponse;
 import com.example.diplom.services.AttachmentService;
+import com.example.diplom.services.PatientService;
 import com.example.diplom.services.dtos.AttachmentDto;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,16 +18,19 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
 public class PatientController implements PatientAPI {
 
     private final AttachmentService attachmentService;
+    private final PatientService patientService;
 
     @Autowired
-    public PatientController(AttachmentService attachmentService) {
+    public PatientController(AttachmentService attachmentService, PatientService patientService) {
         this.attachmentService = attachmentService;
+        this.patientService = patientService;
     }
 
     @Override
@@ -43,11 +48,18 @@ public class PatientController implements PatientAPI {
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(new StatusResponse("Error", e.getMessage()));
         } catch (IOException e) {
-            return ResponseEntity.status(500).body(new StatusResponse("Error","File processing error"));
+            return ResponseEntity.status(500).body(new StatusResponse("Error", "File processing error"));
         }
     }
 
-    UUID getPatientId(){
+    @Override
+    public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient() {
+        UUID patientId = getPatientId();
+        List<PatientVisitDetailsResponse> visits = patientService.getVisitsByPatient(patientId);
+        return ResponseEntity.ok(visits);
+    }
+
+    UUID getPatientId() {
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         UUID patientId = UUID.fromString(jwt.getClaim("id"));
         return patientId;
