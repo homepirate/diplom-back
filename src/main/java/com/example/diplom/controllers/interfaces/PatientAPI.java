@@ -36,6 +36,10 @@ public interface PatientAPI {
     @PostMapping(value = "/add-attachment", consumes = {"multipart/form-data"})
     ResponseEntity<?> AddAttachment(@ModelAttribute AddAttachmentRequest addAttachmentRequest);
 
+    @Operation(summary = "удалить вложение")
+    @DeleteMapping(value = "/delete-attachment")
+    ResponseEntity<?> deleteAttachment(@RequestParam("url") String url);
+
     @Operation(summary = "Получить визиты пациента")
     @GetMapping(value = "/get-patient-visits")
     ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient();

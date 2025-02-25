@@ -14,9 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -57,6 +59,26 @@ public class PatientController implements PatientAPI {
             return ResponseEntity.status(500).body(new StatusResponse("Error", "File processing error"));
         }
     }
+
+    @Override
+    public ResponseEntity<?> deleteAttachment(@RequestParam("url") String url) {
+        UUID patientId = getPatientId();
+        logger.info("Запрос на удаление вложения по URL: {} для пациента с id: {}", url, patientId);
+        try {
+            attachmentService.deleteAttachmentByUrl(patientId, url);
+            return ResponseEntity.ok(new StatusResponse("Delete", "Attachment deleted successfully"));
+        } catch (ResourceNotFoundException e) {
+            logger.warn("Вложение не найдено: {}", e.getMessage());
+            return ResponseEntity.status(404).body(new StatusResponse("Error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            logger.warn("Доступ запрещён: {}", e.getMessage());
+            return ResponseEntity.status(403).body(new StatusResponse("Error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Ошибка при удалении вложения", e);
+            return ResponseEntity.status(500).body(new StatusResponse("Error", "Internal server error"));
+        }
+    }
+
 
     @Override
     public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient() {

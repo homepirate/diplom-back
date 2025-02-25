@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -116,4 +117,37 @@ public class AttachmentServiceImpl implements AttachmentService {
                         .build()
         );
     }
+    @Override
+    public void deleteAttachmentByUrl(UUID patientId, String url) throws Exception {
+        // Parse the URL to extract the file key
+        URI uri = new URI(url);
+        String path = uri.getPath(); // expected format: /bucketName/fileName
+        String expectedPrefix = "/" + bucketName + "/";
+        if (!path.startsWith(expectedPrefix)) {
+            throw new IllegalArgumentException("Неверный формат URL");
+        }
+        String fileKey = path.substring(expectedPrefix.length());
+
+        // Find the attachment record by its file path (fileKey)
+        Attachment attachment = attachmentRepository.findByFilePath(fileKey)
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
+
+        // Verify that the attachment belongs to the patient
+        if (!attachment.getVisit().getPatient().getId().equals(patientId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Patient not allowed to delete this attachment");
+        }
+
+        // Remove the file from MinIO
+        minioClient.removeObject(
+                io.minio.RemoveObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(fileKey)
+                        .build()
+        );
+
+        // Remove the attachment from the visit and delete it from the repository
+        attachment.getVisit().getAttachments().remove(attachment);
+        attachmentRepository.delete(attachment);
+    }
+
 }
