@@ -1,13 +1,13 @@
 package com.example.diplom.services.implementations;
 
 
-import com.example.diplom.controllers.RR.PatientRegisterRequest;
-import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
-import com.example.diplom.controllers.RR.VisitServicesDetailsResponse;
+import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.ResourceNotFoundException;
+import com.example.diplom.models.Doctor;
 import com.example.diplom.models.Patient;
 import com.example.diplom.models.Visit;
 import com.example.diplom.models.VisitService;
+import com.example.diplom.repositories.DoctorPatientRepository;
 import com.example.diplom.repositories.PatientRepository;
 import com.example.diplom.repositories.VisitRepository;
 import com.example.diplom.repositories.VisitServiceRepository;
@@ -32,22 +32,23 @@ public class PatientServiceImpl implements PatientService {
     private final VisitRepository visitRepository;
     private final VisitServiceRepository visitServiceRepository;
     private final AttachmentService attachmentService;
+    private final DoctorPatientRepository doctorPatientRepository;
 
     @Autowired
-    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository,
-                              VisitServiceRepository visitServiceRepository,
-                              AttachmentService attachmentService) {
+    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository, VisitServiceRepository visitServiceRepository, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
         this.modelMapper = modelMapper;
         this.visitRepository = visitRepository;
         this.visitServiceRepository = visitServiceRepository;
         this.attachmentService = attachmentService;
+        this.doctorPatientRepository = doctorPatientRepository;
     }
+
 
     @Override
     public void registerPatient(PatientRegisterRequest patient) {
-        PatientRegistrationDto patientDto = new PatientRegistrationDto(patient.password(),null, patient.email(), patient.phone(),
+        PatientRegistrationDto patientDto = new PatientRegistrationDto(patient.password(), null, patient.email(), patient.phone(),
                 patient.fullName(), patient.birthDate());
         patientDto.setPassword(passwordEncoder.encode(patientDto.getPassword()));
         patientDto.setRole("ROLE_PATIENT");
@@ -98,5 +99,19 @@ public class PatientServiceImpl implements PatientService {
             );
         }).toList();
     }
+
+    @Override
+    public List<DoctorResponse> getPatientDoctors(UUID patientId) {
+        List<Doctor> doctors = doctorPatientRepository.findDoctorsByPatientId(patientId);
+
+        return doctors.stream()
+                .map(doctor -> new DoctorResponse(
+                        doctor.getFullName(),
+                        doctor.getSpecializationName(),
+                        doctor.getId()
+                ))
+                .toList();
+    }
+
 }
 

@@ -43,4 +43,8 @@ public interface PatientAPI {
     @Operation(summary = "Получить визиты пациента")
     @GetMapping(value = "/get-patient-visits")
     ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient();
+
+    @Operation(summary = "Получить всех врачей пациента")
+    @GetMapping(value = "/doctors")
+    ResponseEntity<List<DoctorResponse>> getPatientDoctors();
 }

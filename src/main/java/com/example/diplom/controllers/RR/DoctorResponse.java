@@ -1,4 +1,10 @@
 package com.example.diplom.controllers.RR;
 
-public record DoctorResponse() {
+import java.time.LocalDate;
+import java.util.UUID;
+
+public record DoctorResponse(
+        String fullName,
+        String specialization,
+        UUID id){
 }

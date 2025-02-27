@@ -10,6 +10,7 @@ import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
 import com.example.diplom.services.dtos.VisitDto;
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,17 +33,10 @@ public class DoctorServiceImpl implements DoctorService {
     private final ModelMapper modelMapper;
     private final NotificationService notificationService;
     private final AttachmentService attachmentService;
+    private final DoctorPatientRepository doctorPatientRepository;
 
-    public DoctorServiceImpl(DoctorRepository doctorRepository,
-                             VisitRepository visitRepository,
-                             PasswordEncoder passwordEncoder,
-                             ServiceRepository serviceRepository,
-                             SpecializationRepository specializationRepository,
-                             PatientRepository patientRepository,
-                             ModelMapper modelMapper,
-                             VisitServiceRepository visitServiceRepository,
-                             NotificationService notificationService,
-                             AttachmentService attachmentService) {
+    @Autowired
+    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, VisitServiceRepository visitServiceRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, NotificationService notificationService, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.serviceRepository = serviceRepository;
@@ -53,6 +47,7 @@ public class DoctorServiceImpl implements DoctorService {
         this.modelMapper = modelMapper;
         this.notificationService = notificationService;
         this.attachmentService = attachmentService;
+        this.doctorPatientRepository = doctorPatientRepository;
     }
 
     // -------------------------------------------------
@@ -184,14 +179,14 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public List<PatientResponse> getDoctorPatients(UUID doctorId) {
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
-        return doctor.getDoctorPatients().stream()
-                .map(dp -> new PatientResponse(
-                        dp.getPatient().getFullName(),
-                        dp.getPatient().getBirthDate(),
-                        dp.getPatient().getId()
+        List<Patient> patients = doctorPatientRepository.findPatientsByDoctorId(doctorId);
+
+        return patients
+                .stream().map(patient -> new PatientResponse(
+                        patient.getFullName(),
+                        patient.getBirthDate(),
+                        patient.getId()
                 ))
                 .toList();
     }
@@ -242,11 +237,12 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     // CANCEL VISIT
     // -------------------------------------------------
+
     /**
      * Notice that your cancelVisit method doesn't currently accept the doctorId
      * as a parameter. So either add it or you can do a custom PreAuthorize check
      * that extracts the docId from the JWT inside doctorAuthz.
-     *
+     * <p>
      * We'll add the parameter for consistency:
      */
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
@@ -262,7 +258,7 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #finishVisitRequest.id())")
-    public void finishVisit(UUID doctorId,FinishVisitRequest finishVisitRequest) {
+    public void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest) {
         // We must also change signature to pass doctorId:
         // public void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest) {...}
         //

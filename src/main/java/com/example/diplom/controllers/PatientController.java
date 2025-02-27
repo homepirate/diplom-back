@@ -1,6 +1,7 @@
 package com.example.diplom.controllers;
 
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
+import com.example.diplom.controllers.RR.DoctorResponse;
 import com.example.diplom.controllers.RR.PatientResponse;
 import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
 import com.example.diplom.controllers.interfaces.PatientAPI;
@@ -79,6 +80,14 @@ public class PatientController implements PatientAPI {
         }
     }
 
+    @Override
+    public ResponseEntity<List<DoctorResponse>> getPatientDoctors() {
+        UUID patientId = getPatientId();
+        logger.info("Получение докторов для пациента с id: {}", patientId);
+        List<DoctorResponse> doctors = patientService.getPatientDoctors(patientId);
+        logger.debug("Найдено {} докторов для пациента  с id: {}", doctors.size(), patientId);
+        return ResponseEntity.ok(doctors);
+    }
 
     @Override
     public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient() {

@@ -16,6 +16,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -33,11 +34,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.disable()) // Disable if not needed, or configure properly
+                .csrf(csrf -> csrf.disable()) // CSRF must be disabled for WebSockets
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/register/**", "/specializations").permitAll()
                         .requestMatchers("/api/doctors/**").hasRole("DOCTOR")
-                        .requestMatchers("/api/patients/**").hasAnyRole("PATIENT","DOCTOR")
+                        .requestMatchers("/api/patients/**").hasAnyRole("PATIENT", "DOCTOR")
+                        .requestMatchers("/ws-chat/**").permitAll() // Allow WebSocket connections
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
@@ -69,8 +72,10 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withSecretKey(new javax.crypto.spec.SecretKeySpec("fad397b68badbbd0917c10f2557a1d2ccc81fab1ddd58cb3c820ee55c5aa6978".getBytes(), "HmacSHA256"))
-                .build();
+        return NimbusJwtDecoder.withSecretKey(new javax.crypto.spec.SecretKeySpec(
+                "fad397b68badbbd0917c10f2557a1d2ccc81fab1ddd58cb3c820ee55c5aa6978".getBytes(),
+                "HmacSHA256"
+        )).build();
     }
 
     @Bean
