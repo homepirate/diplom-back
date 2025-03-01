@@ -4,9 +4,14 @@ import com.example.diplom.models.ChatMessage;
 import com.example.diplom.models.ChatMessageEntity;
 import com.example.diplom.repositories.ChatMessageRepository;
 import com.example.diplom.services.ChatService;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.encrypt.Encryptors;
+import org.springframework.security.crypto.encrypt.TextEncryptor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -17,6 +22,27 @@ public class ChatServiceImpl implements ChatService {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    private final TextEncryptor textEncryptor;
+
+    public ChatServiceImpl(ChatMessageRepository chatMessageRepository,
+                           @Value("${encryption.password}") String encryptionPassword,
+                           @Value("${encryption.salt}") String encryptionSalt) {
+        this.chatMessageRepository = chatMessageRepository;
+        this.textEncryptor = Encryptors.text(encryptionPassword, encryptionSalt);
+    }
+
+    @Override
+    public ChatMessage sendMessage(ChatMessage chatMessage) {
+        ChatMessageEntity messageEntity = new ChatMessageEntity();
+        messageEntity.setSenderId(chatMessage.getSenderId());
+        messageEntity.setReceiverId(chatMessage.getReceiverId());
+        String encryptedContent = textEncryptor.encrypt(chatMessage.getContent());
+        messageEntity.setContent(encryptedContent);
+        messageEntity.setTimestamp(LocalDateTime.now().toString());
+        chatMessageRepository.save(messageEntity);
+        return chatMessage;
+    }
 
     @Override
     public List<ChatMessage> getChatHistory(String user1, String user2) {
@@ -37,7 +63,8 @@ public class ChatServiceImpl implements ChatService {
             ChatMessage message = new ChatMessage();
             message.setSenderId(entity.getSenderId());
             message.setReceiverId(entity.getReceiverId());
-            message.setContent(entity.getContent());
+            String decryptedContent = textEncryptor.decrypt(entity.getContent());
+            message.setContent(decryptedContent);
             message.setType(ChatMessage.MessageType.CHAT);
             // If ChatMessage has a timestamp field, set it here:
             // message.setTimestamp(entity.getTimestamp());

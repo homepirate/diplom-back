@@ -11,7 +11,7 @@ import java.util.UUID;
 public interface PatientService {
     void registerPatient(PatientRegisterRequest patient);
 
-        List<PatientVisitDetailsResponse> getVisitsByPatient(UUID patientId);
+    List<PatientVisitDetailsResponse> getVisitsByPatient(UUID patientId);
 
     List<DoctorResponse> getPatientDoctors(UUID patientId);
 }
