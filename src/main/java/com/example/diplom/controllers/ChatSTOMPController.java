@@ -3,6 +3,7 @@ package com.example.diplom.controllers;
 import com.example.diplom.models.ChatMessage;
 import com.example.diplom.models.ChatMessageEntity;
 import com.example.diplom.repositories.ChatMessageRepository;
+import com.example.diplom.services.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -16,15 +17,13 @@ public class ChatSTOMPController {
     @Autowired
     private ChatMessageRepository chatMessageRepository;
 
+    @Autowired
+    private ChatService chatService;
+
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        ChatMessageEntity messageEntity = new ChatMessageEntity();
-        messageEntity.setSenderId(chatMessage.getSenderId());
-        messageEntity.setReceiverId(chatMessage.getReceiverId());
-        messageEntity.setContent(chatMessage.getContent());
-        messageEntity.setTimestamp(LocalDateTime.now().toString());
-        chatMessageRepository.save(messageEntity);
+        chatService.sendMessage(chatMessage);
         return chatMessage;
     }
 }
