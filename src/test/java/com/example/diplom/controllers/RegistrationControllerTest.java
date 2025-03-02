@@ -4,8 +4,6 @@ import com.example.diplom.models.Specialization;
 import com.example.diplom.repositories.SpecializationRepository;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.PatientService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -36,12 +34,9 @@ public class RegistrationControllerTest {
     @MockBean
     private PatientService patientService;
 
-//    @Autowired
-//    private SpecializationRepository specializationRepository;
-//
-//    public RegistrationControllerTest(SpecializationRepository specializationRepository) {
-//        this.specializationRepository = specializationRepository;
-//    }
+    @MockBean
+    private SpecializationRepository specializationRepository;
+
 
     @Test
     public void testRegisterDoctor_Success() throws Exception {
@@ -108,27 +103,16 @@ public class RegistrationControllerTest {
 }
 
 
-//    @Test
-//    public void testRegisterDoctor_InvalidSpecialization() throws Exception {
-//        String doctorJson = """
-//                {
-//                    "email": "doctor@example.com",
-//                    "password": "secret123",
-//                    "phone": "88005553535",
-//                    "fullName": "Dr. John Doe",
-//                    "specialization": "invalid-specialization"
-//                }
-//                """;
-//
-//        // Извлекаем значение специализации из JSON
-//        ObjectMapper mapper = new ObjectMapper();
-//        JsonNode root = mapper.readTree(doctorJson);
-//        String specializationFromJson = root.get("specialization").asText();
-//
-//        // Проверяем, что специализация отсутствует в базе данных
-//        Optional<Specialization> specializationOptional = specializationRepository.findByName(specializationFromJson);
-//        assertTrue("Специализация должна отсутствовать в базе данных", specializationOptional.isEmpty());
-//    }
+    @Test
+    public void testRegisterDoctor_InvalidSpecialization() throws Exception {
+        String doctorspec = "invalid-specialization";
+
+        // Извлекаем значение специализации из JSON
+
+        // Проверяем, что специализация отсутствует в базе данных
+        Optional<Specialization> specializationOptional = specializationRepository.findByName(doctorspec);
+        assertTrue("Специализация должна отсутствовать в базе данных", specializationOptional.isEmpty());
+    }
 
     @Test
     public void testRegisterPatient_Success() throws Exception {
