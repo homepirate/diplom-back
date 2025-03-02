@@ -5,9 +5,18 @@ public class ChatMessage {
     private String receiverId;
     private String content;
     private MessageType type;
+    private String timestamp;
 
     public enum MessageType {
         CHAT, JOIN, LEAVE
+    }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+        this.timestamp = timestamp;
     }
 
     public String getSenderId() {

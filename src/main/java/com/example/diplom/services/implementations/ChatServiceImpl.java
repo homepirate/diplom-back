@@ -39,23 +39,20 @@ public class ChatServiceImpl implements ChatService {
         messageEntity.setReceiverId(chatMessage.getReceiverId());
         String encryptedContent = textEncryptor.encrypt(chatMessage.getContent());
         messageEntity.setContent(encryptedContent);
+        // Set the timestamp on the entity
         messageEntity.setTimestamp(LocalDateTime.now().toString());
         chatMessageRepository.save(messageEntity);
+
+        // **Update the ChatMessage object with the timestamp from the entity**
+        chatMessage.setTimestamp(messageEntity.getTimestamp());
+
         return chatMessage;
     }
 
     @Override
     public List<ChatMessage> getChatHistory(String user1, String user2) {
-        // Fetch messages in both directions
-        List<ChatMessageEntity> messagesFromUser1 = chatMessageRepository.findBySenderIdAndReceiverId(user1, user2);
-        List<ChatMessageEntity> messagesFromUser2 = chatMessageRepository.findBySenderIdAndReceiverId(user2, user1);
-
-        List<ChatMessageEntity> allMessages = new ArrayList<>();
-        allMessages.addAll(messagesFromUser1);
-        allMessages.addAll(messagesFromUser2);
-
-        // Sort messages by timestamp (assumes ISO 8601 format)
-        Collections.sort(allMessages, Comparator.comparing(ChatMessageEntity::getTimestamp));
+        // ✅ Fetch messages using the custom sorted query (no need for two separate queries)
+        List<ChatMessageEntity> allMessages = chatMessageRepository.findBySenderIdAndReceiverId(user1, user2);
 
         // Convert entity list to DTO list
         List<ChatMessage> history = new ArrayList<>();
@@ -63,13 +60,13 @@ public class ChatServiceImpl implements ChatService {
             ChatMessage message = new ChatMessage();
             message.setSenderId(entity.getSenderId());
             message.setReceiverId(entity.getReceiverId());
-            String decryptedContent = textEncryptor.decrypt(entity.getContent());
-            message.setContent(decryptedContent);
+            message.setContent(textEncryptor.decrypt(entity.getContent()));
             message.setType(ChatMessage.MessageType.CHAT);
-            // If ChatMessage has a timestamp field, set it here:
-            // message.setTimestamp(entity.getTimestamp());
+            message.setTimestamp(entity.getTimestamp());
             history.add(message);
         }
+
         return history;
     }
+
 }
