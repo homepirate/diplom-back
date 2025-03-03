@@ -2,9 +2,7 @@ package com.example.diplom.services.implementations;
 
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.dtos.AttachmentDto;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.*;
 import io.minio.http.Method;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,9 +79,7 @@ public class AttachmentServiceImpl implements AttachmentService {
                 savedAttachment.getDescription());
     }
 
-    @Override
     public String storeFile(MultipartFile file) throws Exception {
-        // Normalize the file name
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null) {
             throw new RuntimeException("Invalid file name");
@@ -91,15 +87,17 @@ public class AttachmentServiceImpl implements AttachmentService {
 
         String fileName = UUID.randomUUID() + "_" + originalFileName;
 
-        // Upload file to MinIO
-        minioClient.putObject(
+        // Шифрование при загрузке
+        ObjectWriteResponse response = minioClient.putObject(
                 PutObjectArgs.builder()
                         .bucket(bucketName)
                         .object(fileName)
                         .stream(file.getInputStream(), file.getSize(), -1)
                         .contentType(file.getContentType())
+                        .sse(new ServerSideEncryptionS3()) // Правильный метод для шифрования
                         .build()
         );
+
 
         return fileName;
     }
