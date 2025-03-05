@@ -1,12 +1,10 @@
 package com.example.diplom.controllers;
 
-import com.example.diplom.controllers.RR.AddAttachmentRequest;
-import com.example.diplom.controllers.RR.DoctorResponse;
-import com.example.diplom.controllers.RR.PatientResponse;
-import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
+import com.example.diplom.controllers.RR.*;
 import com.example.diplom.controllers.interfaces.PatientAPI;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.exceptions.StatusResponse;
+import com.example.diplom.models.Patient;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.PatientService;
 import com.example.diplom.services.dtos.AttachmentDto;
@@ -19,6 +17,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -96,6 +95,20 @@ public class PatientController implements PatientAPI {
         List<PatientVisitDetailsResponse> visits = patientService.getVisitsByPatient(patientId);
         logger.debug("Список визитов пациента: {}", visits);
         return ResponseEntity.ok(visits);
+    }
+
+    @Override
+    public ResponseEntity<PatientProfileResponse> getPatientProfile() {
+        UUID patientId = getPatientId();
+        PatientProfileResponse response = patientService.profileById(patientId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<?> updatePatientProfile(@Valid @RequestBody UpdatePatientProfileRequest updateRequest) {
+        UUID patientId = getPatientId();
+        patientService.updatePatientProfile(patientId, updateRequest);
+        return ResponseEntity.ok(new StatusResponse("Update", "Profile updated successfully"));
     }
 
     UUID getPatientId() {

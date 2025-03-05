@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,4 +48,14 @@ public interface PatientAPI {
     @Operation(summary = "Получить всех врачей пациента")
     @GetMapping(value = "/doctors")
     ResponseEntity<List<DoctorResponse>> getPatientDoctors();
+
+    @Operation(summary = "Получить профиль пациента")
+    @GetMapping(value = "/profile")
+    ResponseEntity<PatientProfileResponse> getPatientProfile();
+
+    @Operation(summary = "Обновить профиль пациента")
+    @PutMapping(value = "/profile")
+    ResponseEntity<?> updatePatientProfile(@RequestBody @Valid UpdatePatientProfileRequest updateRequest);
+
+
 }

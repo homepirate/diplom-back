@@ -113,5 +113,41 @@ public class PatientServiceImpl implements PatientService {
                 .toList();
     }
 
+    @Override
+    public PatientProfileResponse profileById(UUID patientId) throws ResourceNotFoundException {
+        return patientRepository.findById(patientId)
+                .map(patient -> new PatientProfileResponse(
+                        patient.getFullName(),
+                        patient.getBirthDate(),
+                        patient.getEmail(),
+                        patient.getPhone()
+                ))
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
+    }
+
+
+
+
+    @Override
+    public void updatePatientProfile(UUID patientId, UpdatePatientProfileRequest updateRequest) throws ResourceNotFoundException {
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
+
+        if (updateRequest.fullName() != null) {
+            patient.setFullName(updateRequest.fullName());
+        }
+        if (updateRequest.birthDate() != null) {
+            patient.setBirthDate(updateRequest.birthDate());
+        }
+        if (updateRequest.email() != null) {
+            patient.setEmail(updateRequest.email());
+        }
+        if (updateRequest.phone() != null) {
+            patient.setPhone(updateRequest.phone());
+        }
+        patientRepository.save(patient);
+    }
+
+
 }
 

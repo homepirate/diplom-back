@@ -1,8 +1,6 @@
 package com.example.diplom.services;
 
-import com.example.diplom.controllers.RR.DoctorResponse;
-import com.example.diplom.controllers.RR.PatientRegisterRequest;
-import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
+import com.example.diplom.controllers.RR.*;
 import com.example.diplom.models.Patient;
 
 import java.util.List;
@@ -14,4 +12,7 @@ public interface PatientService {
     List<PatientVisitDetailsResponse> getVisitsByPatient(UUID patientId);
 
     List<DoctorResponse> getPatientDoctors(UUID patientId);
+
+    PatientProfileResponse profileById(UUID patientId) ;
+    void updatePatientProfile(UUID patientId, UpdatePatientProfileRequest updateRequest) ;
 }
