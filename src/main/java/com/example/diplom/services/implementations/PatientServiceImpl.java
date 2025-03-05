@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class PatientServiceImpl implements PatientService {
@@ -116,14 +117,30 @@ public class PatientServiceImpl implements PatientService {
     @Override
     public PatientProfileResponse profileById(UUID patientId) throws ResourceNotFoundException {
         return patientRepository.findById(patientId)
-                .map(patient -> new PatientProfileResponse(
-                        patient.getFullName(),
-                        patient.getBirthDate(),
-                        patient.getEmail(),
-                        patient.getPhone()
-                ))
+                .map(patient -> {
+                    List<String> attachmentUrls = patient.getVisits().stream()
+                            .flatMap(visit -> visit.getAttachments().stream())
+                            .map(attachment -> {
+                                try {
+                                    return attachmentService.getPresignedUrlForAttachment(attachment.getId());
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                    return new PatientProfileResponse(
+                            patient.getFullName(),
+                            patient.getBirthDate(),
+                            patient.getEmail(),
+                            patient.getPhone(),
+                            attachmentUrls
+                    );
+                })
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
     }
+
 
 
 

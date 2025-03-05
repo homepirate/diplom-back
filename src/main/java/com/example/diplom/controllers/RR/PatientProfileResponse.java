@@ -8,6 +8,7 @@ public record PatientProfileResponse(
         String fullName,
         LocalDate birthDate,
         String email,
-        String phone
+        String phone,
+        List<String> attachments
 ) {
 }
