@@ -1,6 +1,7 @@
 package com.example.diplom.services.implementations;
 
 import com.example.diplom.controllers.RR.*;
+import com.example.diplom.exceptions.AppointmentWarningException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
 import com.example.diplom.notif.NotificationService;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -194,45 +196,6 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     // CREATE VISIT
     // -------------------------------------------------
-    @Override
-    @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #visitRequest.patientId())")
-    public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
-        // We already validated doc–patient link via @PreAuthorize
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
-        Patient patient = patientRepository.findById(visitRequest.patientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + visitRequest.patientId()));
-
-        Visit visit = new Visit();
-        visit.setDoctor(doctor);
-        visit.setPatient(patient);
-        visit.setVisitDate(visitRequest.visitDate());
-        visit.setNotes(visitRequest.notes());
-        visit.setFinished(false);
-        visit.setTotalCost(BigDecimal.ZERO);
-
-        Visit saved = visitRepository.save(visit);
-        notificationService.sendVisitCreatedNotification(patient.getEmail(), saved.getVisitDate().toString());
-
-        return new CreateVisitResponse(saved.getVisitDate(), saved.getId());
-    }
-
-    // -------------------------------------------------
-    // REARRANGE VISIT
-    // -------------------------------------------------
-    @Override
-    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #rearrangeRequest.visitId())")
-    public void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest) {
-        // If we get in here, we know doc owns the visit
-        Visit visit = visitRepository.findById(rearrangeRequest.visitId())
-                .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + rearrangeRequest.visitId()));
-
-        visit.setVisitDate(rearrangeRequest.newVisitDate());
-        visitRepository.save(visit);
-
-        // notify patient
-        notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
-    }
 
     // -------------------------------------------------
     // CANCEL VISIT
@@ -425,5 +388,79 @@ public class DoctorServiceImpl implements DoctorService {
             }
         }
     }
+
+    @Override
+    @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #visitRequest.patientId())")
+
+    public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
+        // Check for overlapping appointments
+        AppointmentCheckResult result = checkAppointmentOverlap(doctorId, visitRequest.visitDate(), null);
+        if (result == AppointmentCheckResult.ERROR) {
+            throw new IllegalArgumentException("Appointments overlap");
+        } else if (result == AppointmentCheckResult.WARNING && !visitRequest.force()) {
+            throw new AppointmentWarningException("There is another appointment close to this time. Is everything right?");
+        }
+
+        // ... existing logic to create visit
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
+        Patient patient = patientRepository.findById(visitRequest.patientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + visitRequest.patientId()));
+
+        Visit visit = new Visit();
+        visit.setDoctor(doctor);
+        visit.setPatient(patient);
+        visit.setVisitDate(visitRequest.visitDate());
+        visit.setNotes(visitRequest.notes());
+        visit.setFinished(false);
+        visit.setTotalCost(BigDecimal.ZERO);
+
+        Visit saved = visitRepository.save(visit);
+        notificationService.sendVisitCreatedNotification(patient.getEmail(), saved.getVisitDate().toString());
+
+        return new CreateVisitResponse(saved.getVisitDate(), saved.getId());
+    }
+
+    @Override
+    @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #rearrangeRequest.visitId())")
+    public void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest) {
+        // Check for overlapping appointments (exclude the visit being rearranged)
+        AppointmentCheckResult result = checkAppointmentOverlap(doctorId, rearrangeRequest.newVisitDate(), rearrangeRequest.visitId());
+        if (result == AppointmentCheckResult.ERROR) {
+            throw new IllegalArgumentException("Appointments overlap");
+        } else if (result == AppointmentCheckResult.WARNING && !rearrangeRequest.force()) {
+            throw new AppointmentWarningException("There is another appointment close to this time. Is everything right?");
+        }
+
+        Visit visit = visitRepository.findById(rearrangeRequest.visitId())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + rearrangeRequest.visitId()));
+
+        visit.setVisitDate(rearrangeRequest.newVisitDate());
+        visitRepository.save(visit);
+        notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
+    }
+
+    // Helper method to check for overlapping appointments
+    private AppointmentCheckResult checkAppointmentOverlap(UUID doctorId, LocalDateTime newTime, UUID existingVisitId) {
+        LocalDateTime windowStart = newTime.minusMinutes(15);
+        LocalDateTime windowEnd = newTime.plusMinutes(15);
+
+        List<Visit> nearbyVisits = visitRepository.findByDoctorIdAndVisitDateBetween(doctorId, windowStart, windowEnd);
+        for (Visit visit : nearbyVisits) {
+            // When rearranging, ignore the current visit
+            if (existingVisitId != null && visit.getId().equals(existingVisitId)) {
+                continue;
+            }
+            long diff = Math.abs(java.time.Duration.between(newTime, visit.getVisitDate()).toMinutes());
+            if (diff == 0) {
+                return AppointmentCheckResult.ERROR;
+            } else if (diff < 15) {
+                return AppointmentCheckResult.WARNING;
+            }
+        }
+        return AppointmentCheckResult.OK;
+    }
+
+
 
 }

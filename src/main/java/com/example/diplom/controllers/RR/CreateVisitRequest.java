@@ -5,9 +5,4 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-public record CreateVisitRequest(
-        UUID patientId,         // ID пациента
-        LocalDateTime visitDate, // Дата и время визита
-        String notes
-) {
-}
+public record CreateVisitRequest(UUID patientId, LocalDateTime visitDate, String notes, boolean force) { }
