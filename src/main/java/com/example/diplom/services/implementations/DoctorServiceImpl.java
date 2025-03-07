@@ -10,14 +10,35 @@ import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
 import com.example.diplom.services.dtos.VisitDto;
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Image;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.UnitValue;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtils;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.labels.StandardPieSectionLabelGenerator;
+import org.jfree.chart.plot.PiePlot;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.general.DefaultPieDataset;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -462,5 +483,172 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
 
+    /**
+     * Генерация финансового отчёта с дашбордом в формате PDF для указанного доктора за выбранный период.
+     * Отчёт включает сводные данные по визитам и график распределения выручки по услугам.
+     *
+     * @param doctorId  идентификатор доктора
+     * @param reportRequest период
+     * @return PDF отчёт в виде массива байтов
+     */
+    @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    public byte[] generateFinancialDashboardReport(UUID doctorId, ReportRequest reportRequest) {
+        // Define date formatters
+        DateTimeFormatter fullDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd.MM");
+
+        // Step 1: Retrieve visits for the specified period
+        List<Visit> visits = visitRepository.findByDoctorIdAndVisitDateBetween(
+                doctorId, reportRequest.startDate(), reportRequest.endDate());
+        if (visits.isEmpty()) {
+            throw new ResourceNotFoundException("No visits found for the specified period.");
+        }
+        BigDecimal totalRevenue = visits.stream()
+                .map(Visit::getTotalCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        int visitCount = visits.size();
+
+        // Step 2: Aggregate service revenue: compute total revenue per service
+        Map<String, BigDecimal> serviceRevenue = new HashMap<>();
+        for (Visit visit : visits) {
+            List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
+            for (VisitService vs : vsList) {
+                String serviceName = vs.getService().getName();
+                BigDecimal revenue = vs.getService().getPrice()
+                        .multiply(BigDecimal.valueOf(vs.getQuantity()));
+                serviceRevenue.put(serviceName,
+                        serviceRevenue.getOrDefault(serviceName, BigDecimal.ZERO).add(revenue));
+            }
+        }
+
+        // Step 3: Calculate daily revenue for the line chart
+        Map<LocalDate, BigDecimal> revenuePerDay = new TreeMap<>();
+        for (Visit visit : visits) {
+            LocalDate day = visit.getVisitDate().toLocalDate();
+            BigDecimal currentRevenue = revenuePerDay.getOrDefault(day, BigDecimal.ZERO);
+            revenuePerDay.put(day, currentRevenue.add(visit.getTotalCost()));
+        }
+        // Create a line chart for daily revenue (dates formatted as dd.MM)
+        DefaultCategoryDataset dayDataset = new DefaultCategoryDataset();
+        for (Map.Entry<LocalDate, BigDecimal> entry : revenuePerDay.entrySet()) {
+            dayDataset.addValue(entry.getValue(), "Revenue", entry.getKey().format(dayFormatter));
+        }
+        JFreeChart lineChart = ChartFactory.createLineChart(
+                "Daily Revenue",
+                "Date",
+                "Revenue",
+                dayDataset
+        );
+        ByteArrayOutputStream lineChartOut = new ByteArrayOutputStream();
+        try {
+            ChartUtils.writeChartAsPNG(lineChartOut, lineChart, 500, 400);
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating daily revenue line chart", e);
+        }
+        byte[] lineChartImageBytes = lineChartOut.toByteArray();
+
+        // Step 4: Create a pie chart for service revenue percentages
+        DefaultPieDataset pieDataset = new DefaultPieDataset();
+        for (Map.Entry<String, BigDecimal> entry : serviceRevenue.entrySet()) {
+            pieDataset.setValue(entry.getKey(), entry.getValue());
+        }
+        JFreeChart pieChart = ChartFactory.createPieChart(
+                "Service Revenue Percentage",
+                pieDataset,
+                true,  // include legend
+                true,  // tooltips
+                false  // URLs
+        );
+        // Set label generator to display percentages
+        PiePlot piePlot = (PiePlot) pieChart.getPlot();
+        piePlot.setLabelGenerator(new StandardPieSectionLabelGenerator("{0}: {2}"));
+        ByteArrayOutputStream pieChartOut = new ByteArrayOutputStream();
+        try {
+            ChartUtils.writeChartAsPNG(pieChartOut, pieChart, 500, 400);
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating pie chart for service revenue", e);
+        }
+        byte[] pieChartImageBytes = pieChartOut.toByteArray();
+
+        // Step 5: Generate PDF report using iText
+        ByteArrayOutputStream pdfOut = new ByteArrayOutputStream();
+        try {
+            PdfWriter writer = new PdfWriter(pdfOut);
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc);
+
+            // Report header: period (formatted as DD.MM.YYYY)
+            document.add(new Paragraph("Financial Report for the period: "
+                    + reportRequest.startDate().format(fullDateFormatter) + " - "
+                    + reportRequest.endDate().format(fullDateFormatter))
+                    .setBold()
+                    .setFontSize(16));
+            document.add(new Paragraph(" ")); // Spacing
+
+            // Summary: total number of visits and total revenue
+            document.add(new Paragraph("Total number of visits: " + visitCount));
+            document.add(new Paragraph("Total revenue: " + totalRevenue));
+            document.add(new Paragraph(" "));
+
+            // Numbered list of visits with date (formatted as DD.MM.YYYY), patient's full name, and revenue per visit
+            document.add(new Paragraph("Visits:").setBold());
+            int index = 1;
+            for (Visit visit : visits) {
+                String patientName = (visit.getPatient() != null)
+                        ? visit.getPatient().getFullName() : "Unknown";
+                document.add(new Paragraph(index++ + ". Visit on "
+                        + visit.getVisitDate().format(fullDateFormatter)
+                        + " - Patient: " + patientName
+                        + " - Revenue: " + visit.getTotalCost()));
+            }
+            document.add(new Paragraph(" "));
+
+            // Insert line chart: daily revenue chart
+            document.add(new Paragraph("Daily Revenue Line Chart:").setBold());
+            Image lineChartImage = new Image(ImageDataFactory.create(lineChartImageBytes));
+            document.add(lineChartImage);
+            document.add(new Paragraph(" "));
+
+            // Insert pie chart: service revenue percentage chart
+            document.add(new Paragraph("Service Revenue Percentage Pie Chart:").setBold());
+            Image pieChartImage = new Image(ImageDataFactory.create(pieChartImageBytes));
+            document.add(pieChartImage);
+            document.add(new Paragraph(" "));
+
+            // List of services: each service with its total revenue and a color marker matching the pie chart section.
+            document.add(new Paragraph("Services:").setBold());
+            // Create a table with two columns: one for the color marker, one for the service text.
+            float[] columnWidths = {20F, 480F};
+            Table serviceTable = new Table(UnitValue.createPointArray(columnWidths));
+            for (Map.Entry<String, BigDecimal> entry : serviceRevenue.entrySet()) {
+                // Get the color from the pie chart for the service.
+                java.awt.Paint paint = piePlot.getSectionPaint(entry.getKey());
+                java.awt.Color awtColor = (paint instanceof java.awt.Color) ? (java.awt.Color) paint : java.awt.Color.BLACK;
+                DeviceRgb iTextColor = new DeviceRgb(awtColor.getRed(), awtColor.getGreen(), awtColor.getBlue());
+
+                // Create a cell with a colored rectangle.
+                Cell markerCell = new Cell()
+                        .add(new Paragraph(" "))
+                        .setBackgroundColor(iTextColor)
+                        .setWidth(20)
+                        .setHeight(20)
+                        .setBorder(Border.NO_BORDER);
+                // Create a cell with the service text.
+                Cell textCell = new Cell()
+                        .add(new Paragraph("Service: " + entry.getKey() + " - Total revenue: " + entry.getValue()))
+                        .setBorder(Border.NO_BORDER);
+                serviceTable.addCell(markerCell);
+                serviceTable.addCell(textCell);
+            }
+            document.add(serviceTable);
+
+            document.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating PDF report", e);
+        }
+
+        return pdfOut.toByteArray();
+    }
 
 }

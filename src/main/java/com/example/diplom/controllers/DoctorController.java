@@ -170,6 +170,24 @@ public class DoctorController implements DoctorAPI {
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    public ResponseEntity<byte[]> getFinancialDashboardReport(@RequestBody ReportRequest reportRequest) {
+        UUID doctorId = getDoctorId();
+        logger.info("Генерация финансового отчета для доктора с id: {} за период {} - {}",
+                doctorId, reportRequest.startDate(), reportRequest.endDate());
+
+        byte[] pdfReport = doctorService.generateFinancialDashboardReport(
+                doctorId,
+                reportRequest
+        );
+        logger.info("Отчет успешно сгенерирован для доктора с id: {}", doctorId);
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=financial_report.pdf")
+                .body(pdfReport);
+    }
+
 
     UUID getDoctorId() {
         logger.debug("Извлечение идентификатора доктора из JWT");

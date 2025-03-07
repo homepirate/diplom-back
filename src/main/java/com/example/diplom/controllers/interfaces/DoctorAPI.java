@@ -89,6 +89,9 @@ public interface DoctorAPI {
     ResponseEntity<PatientMedCardResponse> getPatientMedicalCard(@RequestParam("patientId") UUID patientId);
 
 
+    @Operation(summary = "Создать и получить отчет")
+    @PostMapping("/report")
+    public ResponseEntity<byte[]> getFinancialDashboardReport(@RequestBody ReportRequest reportRequest);
 
 
 }

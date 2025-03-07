@@ -32,4 +32,6 @@ public interface DoctorService {
     VisitDetailsResponse getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest);
 
     PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId);
+
+    byte[] generateFinancialDashboardReport(UUID doctorId, ReportRequest reportRequest);
 }

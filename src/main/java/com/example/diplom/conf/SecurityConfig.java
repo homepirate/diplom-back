@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.disable()) // Disable if not needed, or configure properly
                 .csrf(csrf -> csrf.disable()) // CSRF must be disabled for WebSockets
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/register/**", "/specializations").permitAll()
+                        .requestMatchers("/auth/**", "/register/**", "/specializations", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/doctors/**").hasRole("DOCTOR")
                         .requestMatchers("/api/patients/**").hasAnyRole("PATIENT", "DOCTOR")
                         .requestMatchers("/ws-chat/**").permitAll() // Allow WebSocket connections
