@@ -10,8 +10,11 @@ import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.DoctorService;
 import com.example.diplom.services.dtos.DoctorRegistrationDto;
 import com.example.diplom.services.dtos.VisitDto;
+import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
@@ -25,7 +28,12 @@ import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtils;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.labels.StandardPieSectionLabelGenerator;
+import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PiePlot;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.title.TextTitle;
+import org.jfree.chart.ui.HorizontalAlignment;
+import org.jfree.chart.ui.RectangleEdge;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
 import org.modelmapper.ModelMapper;
@@ -38,6 +46,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
@@ -494,22 +503,30 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public byte[] generateFinancialDashboardReport(UUID doctorId, ReportRequest reportRequest) {
-        // Define date formatters
-        DateTimeFormatter fullDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd.MM");
 
-        // Step 1: Retrieve visits for the specified period
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd.MM");
+        DateTimeFormatter fullDateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+
+        LocalDateTime startOfDay = reportRequest.startDate().atStartOfDay();
+        LocalDateTime endOfDay   = reportRequest.endDate().atTime(LocalTime.MAX);
+
+        // 1) Получаем визиты за период
         List<Visit> visits = visitRepository.findByDoctorIdAndVisitDateBetween(
-                doctorId, reportRequest.startDate(), reportRequest.endDate());
+                doctorId,
+                startOfDay,
+                endOfDay
+        );
         if (visits.isEmpty()) {
-            throw new ResourceNotFoundException("No visits found for the specified period.");
+            throw new ResourceNotFoundException("В указанный период визиты не найдены.");
         }
+
+        // Подсчитываем общую выручку и общее кол-во визитов
         BigDecimal totalRevenue = visits.stream()
                 .map(Visit::getTotalCost)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         int visitCount = visits.size();
 
-        // Step 2: Aggregate service revenue: compute total revenue per service
+        // 2) Агрегируем выручку по услугам (для круговой диаграммы)
         Map<String, BigDecimal> serviceRevenue = new HashMap<>();
         for (Visit visit : visits) {
             List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
@@ -522,133 +539,211 @@ public class DoctorServiceImpl implements DoctorService {
             }
         }
 
-        // Step 3: Calculate daily revenue for the line chart
+        LocalDate currentDate = reportRequest.startDate();
+        LocalDate endDate = reportRequest.endDate();
+
         Map<LocalDate, BigDecimal> revenuePerDay = new TreeMap<>();
+        while (!currentDate.isAfter(endDate)) {
+            revenuePerDay.put(currentDate, BigDecimal.ZERO);
+            currentDate = currentDate.plusDays(1);
+        }
+
+// Теперь revenuePerDay уже содержит ключи для каждого дня,
+// но все значения пока что нули. Дальше суммируем реальные визиты:
         for (Visit visit : visits) {
             LocalDate day = visit.getVisitDate().toLocalDate();
-            BigDecimal currentRevenue = revenuePerDay.getOrDefault(day, BigDecimal.ZERO);
+            BigDecimal currentRevenue = revenuePerDay.get(day);
             revenuePerDay.put(day, currentRevenue.add(visit.getTotalCost()));
         }
-        // Create a line chart for daily revenue (dates formatted as dd.MM)
+        // Формируем набор данных для столбцовой диаграммы
         DefaultCategoryDataset dayDataset = new DefaultCategoryDataset();
         for (Map.Entry<LocalDate, BigDecimal> entry : revenuePerDay.entrySet()) {
-            dayDataset.addValue(entry.getValue(), "Revenue", entry.getKey().format(dayFormatter));
+            dayDataset.addValue(entry.getValue(), "Выручка", entry.getKey().format(dayFormatter));
         }
-        JFreeChart lineChart = ChartFactory.createLineChart(
-                "Daily Revenue",
-                "Date",
-                "Revenue",
-                dayDataset
+        // Создаём столбцовую диаграмму
+        JFreeChart barChart = ChartFactory.createBarChart(
+                "Ежедневная выручка",
+                "",
+                "Выручка",
+                dayDataset,
+                PlotOrientation.VERTICAL,
+                false,
+                false,
+                false
         );
-        ByteArrayOutputStream lineChartOut = new ByteArrayOutputStream();
-        try {
-            ChartUtils.writeChartAsPNG(lineChartOut, lineChart, 500, 400);
-        } catch (Exception e) {
-            throw new RuntimeException("Error generating daily revenue line chart", e);
-        }
-        byte[] lineChartImageBytes = lineChartOut.toByteArray();
+        CategoryPlot barPlot = barChart.getCategoryPlot();
+        barPlot.getDomainAxis().setTickLabelsVisible(false);
 
-        // Step 4: Create a pie chart for service revenue percentages
+        ByteArrayOutputStream barChartOut = new ByteArrayOutputStream();
+        try {
+            ChartUtils.writeChartAsPNG(barChartOut, barChart, 400, 300);
+        } catch (Exception e) {
+            throw new RuntimeException("Ошибка генерации столбцовой диаграммы ежедневной выручки", e);
+        }
+        byte[] barChartImageBytes = barChartOut.toByteArray();
+
+        // 4) Формируем круговую диаграмму (процентное соотношение выручки по услугам)
         DefaultPieDataset pieDataset = new DefaultPieDataset();
         for (Map.Entry<String, BigDecimal> entry : serviceRevenue.entrySet()) {
             pieDataset.setValue(entry.getKey(), entry.getValue());
         }
         JFreeChart pieChart = ChartFactory.createPieChart(
-                "Service Revenue Percentage",
+                "Процентное соотношение выручки по услугам",
                 pieDataset,
-                true,  // include legend
-                true,  // tooltips
-                false  // URLs
+                false,
+                true,
+                false
         );
-        // Set label generator to display percentages
         PiePlot piePlot = (PiePlot) pieChart.getPlot();
-        piePlot.setLabelGenerator(new StandardPieSectionLabelGenerator("{0}: {2}"));
+        // Проценты на секторах
+        piePlot.setLabelGenerator(new StandardPieSectionLabelGenerator("{2}"));
+
+        // Добавляем субтитул с общей выручкой в правый нижний угол
+        TextTitle totalRevenueSubtitle = new TextTitle("Общая выручка: " + totalRevenue);
+        totalRevenueSubtitle.setPosition(RectangleEdge.BOTTOM);
+        totalRevenueSubtitle.setHorizontalAlignment(HorizontalAlignment.RIGHT);
+        pieChart.addSubtitle(totalRevenueSubtitle);
+
         ByteArrayOutputStream pieChartOut = new ByteArrayOutputStream();
         try {
-            ChartUtils.writeChartAsPNG(pieChartOut, pieChart, 500, 400);
+            ChartUtils.writeChartAsPNG(pieChartOut, pieChart, 400, 300);
         } catch (Exception e) {
-            throw new RuntimeException("Error generating pie chart for service revenue", e);
+            throw new RuntimeException("Ошибка генерации круговой диаграммы для выручки по услугам", e);
         }
         byte[] pieChartImageBytes = pieChartOut.toByteArray();
 
-        // Step 5: Generate PDF report using iText
+        // 5) Генерация PDF
         ByteArrayOutputStream pdfOut = new ByteArrayOutputStream();
         try {
             PdfWriter writer = new PdfWriter(pdfOut);
             PdfDocument pdfDoc = new PdfDocument(writer);
             Document document = new Document(pdfDoc);
 
-            // Report header: period (formatted as DD.MM.YYYY)
-            document.add(new Paragraph("Financial Report for the period: "
+            // Подключаем шрифт с поддержкой кириллицы
+            PdfFont font = PdfFontFactory.createFont(
+                    "src/main/resources/ofont.ru_Futura PT.ttf",
+                    PdfEncodings.IDENTITY_H,
+                    PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED,
+                    true
+            );
+            document.setFont(font);
+
+            // Заголовок отчёта
+            document.add(new Paragraph("Финансовый отчёт за период: "
                     + reportRequest.startDate().format(fullDateFormatter) + " - "
                     + reportRequest.endDate().format(fullDateFormatter))
                     .setBold()
                     .setFontSize(16));
-            document.add(new Paragraph(" ")); // Spacing
 
-            // Summary: total number of visits and total revenue
-            document.add(new Paragraph("Total number of visits: " + visitCount));
-            document.add(new Paragraph("Total revenue: " + totalRevenue));
-            document.add(new Paragraph(" "));
+            // Краткая сводка
+            document.add(new Paragraph("Общее количество визитов: " + visitCount));
+            document.add(new Paragraph("Общая выручка: " + totalRevenue));
 
-            // Numbered list of visits with date (formatted as DD.MM.YYYY), patient's full name, and revenue per visit
-            document.add(new Paragraph("Visits:").setBold());
-            int index = 1;
-            for (Visit visit : visits) {
-                String patientName = (visit.getPatient() != null)
-                        ? visit.getPatient().getFullName() : "Unknown";
-                document.add(new Paragraph(index++ + ". Visit on "
-                        + visit.getVisitDate().format(fullDateFormatter)
-                        + " - Patient: " + patientName
-                        + " - Revenue: " + visit.getTotalCost()));
-            }
-            document.add(new Paragraph(" "));
+            // Добавляем диаграммы
+            Image barChartImage = new Image(ImageDataFactory.create(barChartImageBytes));
+            barChartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+            document.add(barChartImage);
 
-            // Insert line chart: daily revenue chart
-            document.add(new Paragraph("Daily Revenue Line Chart:").setBold());
-            Image lineChartImage = new Image(ImageDataFactory.create(lineChartImageBytes));
-            document.add(lineChartImage);
-            document.add(new Paragraph(" "));
-
-            // Insert pie chart: service revenue percentage chart
-            document.add(new Paragraph("Service Revenue Percentage Pie Chart:").setBold());
             Image pieChartImage = new Image(ImageDataFactory.create(pieChartImageBytes));
-            document.add(pieChartImage);
-            document.add(new Paragraph(" "));
+            pieChartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
 
-            // List of services: each service with its total revenue and a color marker matching the pie chart section.
-            document.add(new Paragraph("Services:").setBold());
-            // Create a table with two columns: one for the color marker, one for the service text.
-            float[] columnWidths = {20F, 480F};
-            Table serviceTable = new Table(UnitValue.createPointArray(columnWidths));
+            document.add(pieChartImage);
+
+            // (Необязательная) Таблица услуг и цветов
+            document.add(new Paragraph("Услуги:").setBold());
+            float[] serviceColumnWidths = {20F, 480F};
+            Table serviceTable = new Table(UnitValue.createPointArray(serviceColumnWidths))
+                    .setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+            document.add(serviceTable);
+
             for (Map.Entry<String, BigDecimal> entry : serviceRevenue.entrySet()) {
-                // Get the color from the pie chart for the service.
                 java.awt.Paint paint = piePlot.getSectionPaint(entry.getKey());
                 java.awt.Color awtColor = (paint instanceof java.awt.Color) ? (java.awt.Color) paint : java.awt.Color.BLACK;
                 DeviceRgb iTextColor = new DeviceRgb(awtColor.getRed(), awtColor.getGreen(), awtColor.getBlue());
 
-                // Create a cell with a colored rectangle.
                 Cell markerCell = new Cell()
                         .add(new Paragraph(" "))
                         .setBackgroundColor(iTextColor)
                         .setWidth(20)
                         .setHeight(20)
                         .setBorder(Border.NO_BORDER);
-                // Create a cell with the service text.
+
                 Cell textCell = new Cell()
-                        .add(new Paragraph("Service: " + entry.getKey() + " - Total revenue: " + entry.getValue()))
+                        .add(new Paragraph("Услуга: " + entry.getKey() + " — выручка: " + entry.getValue()))
                         .setBorder(Border.NO_BORDER);
+
                 serviceTable.addCell(markerCell);
                 serviceTable.addCell(textCell);
             }
             document.add(serviceTable);
 
+            // ----------------------------------------------------------------
+            // ГЛАВНОЕ: группируем визиты по пациентам, чтобы:
+            //  1) Сортировать по ФИО
+            //  2) Подсчитать общее кол-во визитов на пациента
+            //  3) Подсчитать суммарную выручку на пациента
+            // ----------------------------------------------------------------
+            Map<String, List<Visit>> visitsByPatient = visits.stream()
+                    .collect(Collectors.groupingBy(v -> {
+                        // Возьмём ФИО, или "Неизвестно" если нет пациента
+                        if (v.getPatient() != null) {
+                            return v.getPatient().getFullName();
+                        } else {
+                            return "Неизвестно";
+                        }
+                    }));
+
+            // Преобразуем в список "статистик" по пациентам
+            List<PatientStats> patientStatsList = new ArrayList<>();
+            for (Map.Entry<String, List<Visit>> entry : visitsByPatient.entrySet()) {
+                String patientName = entry.getKey();
+                List<Visit> patientVisits = entry.getValue();
+
+                // Кол-во визитов
+                int count = patientVisits.size();
+
+                // Суммарная выручка по пациенту
+                BigDecimal totalForPatient = patientVisits.stream()
+                        .map(Visit::getTotalCost)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                patientStatsList.add(new PatientStats(patientName, count, totalForPatient));
+            }
+
+            // Сортируем список по имени пациента
+            patientStatsList.sort(Comparator.comparing(PatientStats::patientName));
+
+            // Создаём новую таблицу: ФИО пациента | Количество визитов | Общая выручка
+            document.add(new Paragraph("Сводная информация по пациентам:").setBold());
+            float[] patientColumnWidths = {200F, 100F, 100F};
+            Table patientTable = new Table(UnitValue.createPointArray(patientColumnWidths));
+
+            // Заголовки
+            patientTable.addHeaderCell(new Cell().add(new Paragraph("ФИО пациента").setBold()));
+            patientTable.addHeaderCell(new Cell().add(new Paragraph("Кол-во визитов").setBold()));
+            patientTable.addHeaderCell(new Cell().add(new Paragraph("Общая выручка").setBold()));
+
+            // Заполняем строки таблицы
+            for (PatientStats stats : patientStatsList) {
+                patientTable.addCell(new Cell().add(new Paragraph(stats.patientName())));
+                patientTable.addCell(new Cell().add(new Paragraph(String.valueOf(stats.visitCount()))));
+                patientTable.addCell(new Cell().add(new Paragraph(stats.totalRevenue().toString())));
+            }
+            document.add(patientTable);
+
             document.close();
         } catch (Exception e) {
-            throw new RuntimeException("Error generating PDF report", e);
+            throw new RuntimeException("Ошибка генерации PDF отчёта", e);
         }
 
         return pdfOut.toByteArray();
     }
+
+    public record PatientStats(String patientName, int visitCount, BigDecimal totalRevenue) {}
+
+
+
+
+
 
 }

@@ -1,7 +1,9 @@
 package com.example.diplom.controllers.RR;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
-public record ReportRequest(LocalDateTime startDate,
-                            LocalDateTime endDate) {
+import java.time.LocalDate;
+
+public record ReportRequest(@JsonFormat(pattern = "dd-MM-yyyy") LocalDate startDate,
+                            @JsonFormat(pattern = "dd-MM-yyyy") LocalDate endDate) {
 }
