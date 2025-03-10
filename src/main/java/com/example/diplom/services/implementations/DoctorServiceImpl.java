@@ -718,6 +718,8 @@ public class DoctorServiceImpl implements DoctorService {
             float[] patientColumnWidths = {200F, 100F, 100F};
             Table patientTable = new Table(UnitValue.createPointArray(patientColumnWidths));
 
+            patientTable.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
+
             // Заголовки
             patientTable.addHeaderCell(new Cell().add(new Paragraph("ФИО пациента").setBold()));
             patientTable.addHeaderCell(new Cell().add(new Paragraph("Кол-во визитов").setBold()));
