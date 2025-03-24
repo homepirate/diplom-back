@@ -34,4 +34,6 @@ public interface DoctorService {
     PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId);
 
     byte[] generateFinancialDashboardReport(UUID doctorId, ReportRequest reportRequest);
+    PatientResponse addPatientManually(UUID doctorId, AddPatientRequest addPatientRequest);
+
 }

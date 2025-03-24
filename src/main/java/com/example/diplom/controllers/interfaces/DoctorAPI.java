@@ -93,5 +93,9 @@ public interface DoctorAPI {
     @PostMapping("/report")
     public ResponseEntity<byte[]> getFinancialDashboardReport(@RequestBody ReportRequest reportRequest);
 
+    @Operation(summary = "Вбить пациента вручную")
+    @PostMapping("/add-patient")
+    ResponseEntity<PatientResponse> addPatientManually(@RequestBody AddPatientRequest addPatientRequest);
+
 
 }

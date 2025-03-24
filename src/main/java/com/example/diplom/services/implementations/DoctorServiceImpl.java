@@ -743,7 +743,34 @@ public class DoctorServiceImpl implements DoctorService {
 
     public record PatientStats(String patientName, int visitCount, BigDecimal totalRevenue) {}
 
+    @Override
+    @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    public PatientResponse addPatientManually(UUID doctorId, AddPatientRequest addPatientRequest) {
+        // Create a new temporary patient
+        Patient patient = new Patient();
+        patient.setFullName(addPatientRequest.fullName());
+        patient.setPhone(addPatientRequest.phone());
+        patient.setBirthDate(addPatientRequest.birthDate());
 
+        patient.setIsTemporary(true);  // mark as temporary
+
+
+        // Save the patient
+        Patient savedPatient = patientRepository.save(patient);
+
+        // Fetch the doctor (throw exception if not found)
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+
+        // Create the doctor-patient association
+        DoctorPatient dp = new DoctorPatient();
+        dp.setDoctor(doctor);
+        dp.setPatient(savedPatient);
+        doctorPatientRepository.save(dp);
+
+        // Return response DTO
+        return new PatientResponse(savedPatient.getFullName(), savedPatient.getBirthDate(), savedPatient.getId());
+    }
 
 
 

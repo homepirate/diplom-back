@@ -1,6 +1,7 @@
 package com.example.diplom.models;
 
 import jakarta.persistence.*;
+import org.springframework.context.annotation.Role;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -17,7 +18,12 @@ public class Patient extends User {
     private Set<Visit> visits = new HashSet<>();
 
 
+    private Boolean isTemporary = false;
+
+
     public Patient() {
+        super();
+        this.setRole("ROLE_PATIENT");
     }
 
 
@@ -64,5 +70,14 @@ public class Patient extends User {
                 ", name='" + fullName + '\'' +
                 ", birthDate=" + birthDate +
                 '}';
+    }
+
+    public void setIsTemporary(boolean isTemporary) {
+        this.isTemporary = isTemporary;
+    }
+
+    @Column(name = "isTemporary")
+    public Boolean getIsTemporary() {
+        return isTemporary;
     }
 }

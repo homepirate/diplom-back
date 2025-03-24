@@ -196,4 +196,13 @@ public class DoctorController implements DoctorAPI {
         logger.debug("Получен идентификатор доктора: {}", doctorId);
         return doctorId;
     }
+
+    @Override
+    public ResponseEntity<PatientResponse> addPatientManually(AddPatientRequest addPatientRequest) {
+        UUID doctorId = getDoctorId();
+        logger.info("Manually adding patient for doctor with id: {}", doctorId);
+        PatientResponse response = doctorService.addPatientManually(doctorId, addPatientRequest);
+        logger.info("Temporary patient created with id: {}", response.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 }

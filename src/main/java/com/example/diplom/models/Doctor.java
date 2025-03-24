@@ -15,7 +15,10 @@ public class Doctor extends User {
     private Set<DoctorPatient> doctorPatients = new HashSet<>();
     private Set<Service> services = new HashSet<>();
 
-    public Doctor() {}
+    public Doctor() {
+        super();
+        this.setRole("ROLE_DOCTOR");
+    }
 
     @Column(name = "full_name", nullable = false, length = 100)
     public String getFullName() {

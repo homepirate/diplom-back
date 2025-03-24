@@ -116,6 +116,7 @@ public class DataInitializer {
             patient.setPhone("8" + faker.number().digits(10));
             patient.setPassword(passwordEncoder.encode("password"));
             patient.setRole("ROLE_PATIENT");
+
             patientRepository.save(patient);
         }
     }

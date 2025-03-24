@@ -14,7 +14,7 @@ public abstract class User extends Base {
     private String phone;
 
 
-    @Column(name = "password", nullable = false)
+    @Column(name = "password", nullable = true)
     public String getPassword() {
         return password;
     }
@@ -32,7 +32,7 @@ public abstract class User extends Base {
         this.role = role;
     }
 
-    @Column(name = "email", unique = true, nullable = false)
+    @Column(name = "email", unique = true, nullable = true)
     public String getEmail() {
         return email;
     }
@@ -41,7 +41,7 @@ public abstract class User extends Base {
         this.email = email;
     }
 
-    @Column(name = "phone", length = 20, unique = true)
+    @Column(name = "phone", length = 20, unique = true,nullable = false)
     public String getPhone() {
         return phone;
     }

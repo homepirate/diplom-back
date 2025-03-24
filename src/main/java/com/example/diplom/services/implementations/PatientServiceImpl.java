@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,15 +48,45 @@ public class PatientServiceImpl implements PatientService {
     }
 
 
-    @Override
-    public void registerPatient(PatientRegisterRequest patient) {
-        PatientRegistrationDto patientDto = new PatientRegistrationDto(patient.password(), null, patient.email(), patient.phone(),
-                patient.fullName(), patient.birthDate());
-        patientDto.setPassword(passwordEncoder.encode(patientDto.getPassword()));
-        patientDto.setRole("ROLE_PATIENT");
 
-        patientRepository.save(modelMapper.map(patientDto, Patient.class));
+    @Override
+    public void registerPatient(PatientRegisterRequest request) {
+        // Look for an existing patient with this phone
+        Optional<Patient> existingPatientOpt = patientRepository.findByPhone(request.phone());
+        if (existingPatientOpt.isPresent()) {
+            Patient existingPatient = existingPatientOpt.get();
+            if (Boolean.TRUE.equals(existingPatient.getIsTemporary())) {
+                // Migrate the temporary record
+                existingPatient.setEmail(request.email());
+                existingPatient.setFullName(request.fullName());
+                existingPatient.setBirthDate(request.birthDate());
+                existingPatient.setPassword(passwordEncoder.encode(request.password()));
+                existingPatient.setRole("ROLE_PATIENT");
+                existingPatient.setIsTemporary(false); // mark as fully registered
+                patientRepository.save(existingPatient);
+            } else {
+                // Phone already exists for a fully registered patient
+                throw new IllegalArgumentException("Телефон уже зарегистрирован в системе");
+            }
+        } else {
+            // No record exists; create a new patient.
+            PatientRegistrationDto dto = new PatientRegistrationDto(
+                    request.password(),
+                    null,
+                    request.email(),
+                    request.phone(),
+                    request.fullName(),
+                    request.birthDate()
+            );
+            dto.setPassword(passwordEncoder.encode(dto.getPassword()));
+            dto.setRole("ROLE_PATIENT");
+            Patient newPatient = modelMapper.map(dto, Patient.class);
+            newPatient.setIsTemporary(false);
+            patientRepository.save(newPatient);
+        }
     }
+
+
 
     @Override
     public List<PatientVisitDetailsResponse> getVisitsByPatient(UUID patientId) {
