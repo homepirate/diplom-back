@@ -7,7 +7,7 @@ import io.minio.http.Method;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import io.minio.ServerSideEncryptionS3;
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.Attachment;
@@ -94,7 +94,7 @@ public class AttachmentServiceImpl implements AttachmentService {
                         .object(fileName)
                         .stream(file.getInputStream(), file.getSize(), -1)
                         .contentType(file.getContentType())
-                        .sse(new ServerSideEncryptionS3()) // Правильный метод для шифрования
+                        //.sse(new ServerSideEncryptionS3()) // #НЕРАБО
                         .build()
         );
 
