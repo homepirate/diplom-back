@@ -5,6 +5,7 @@ import com.example.diplom.services.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
@@ -27,6 +28,9 @@ public class ChatSTOMPController {
 
         // Send the message to the conversation-specific topic
         messagingTemplate.convertAndSend("/topic/chat." + conversationId, chatMessage);
+        messagingTemplate.convertAndSend("/topic/user." + chatMessage.getReceiverId(), chatMessage);
+        messagingTemplate.convertAndSend("/topic/user." + chatMessage.getSenderId(), chatMessage);
+
     }
 
     private String getConversationId(String id1, String id2) {
