@@ -24,8 +24,10 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         String code = null;
+        String fullName = null;
         if (user instanceof Doctor) {
             code = ((Doctor) user).getUniqueCode();
+            fullName = ((Doctor) user).getFullName();
         }
 
         return new CustomUserDetails(
@@ -33,7 +35,8 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.getEmail(),
                 user.getPassword(),
                 user.getRole(),
-                code
+                code,
+                fullName
         );
     }
 }

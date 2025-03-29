@@ -1,8 +1,11 @@
 package com.example.diplom.utils;
 
+import com.example.diplom.models.Doctor;
+import com.example.diplom.repositories.DoctorRepository;
 import com.example.diplom.services.dtos.CustomUserDetails;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -42,7 +45,7 @@ public class JwtTokenProvider {
         if (authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             if (userDetails.getCode() != null) {
-                jwtBuilder.claim("code", userDetails.getCode());
+                jwtBuilder.claim("code", userDetails.getCode()).claim("fullName", userDetails.getFullName());
             }
         }
 

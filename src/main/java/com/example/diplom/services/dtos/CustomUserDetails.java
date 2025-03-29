@@ -15,13 +15,15 @@ public class CustomUserDetails implements UserDetails {
     private final String password;
     private final String role;
     private final String code; // add this field
+    private final String fullName;
 
-    public CustomUserDetails(UUID id, String email, String password, String role, String code) {
+    public CustomUserDetails(UUID id, String email, String password, String role, String code, String fullName) {
         this.id = id;
         this.email = email;
         this.password = password;
         this.role = role;
         this.code = code;
+        this.fullName = fullName;
     }
 
     public UUID getId() {
@@ -47,6 +49,9 @@ public class CustomUserDetails implements UserDetails {
         return Collections.singletonList(new SimpleGrantedAuthority(role));
     }
 
+    public String getFullName() {
+        return fullName;
+    }
 
     @Override
     public boolean isAccountNonExpired() {
