@@ -21,9 +21,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-
 import java.io.ByteArrayOutputStream;
-
 
 @Component
 public class DataInitializer {
@@ -173,7 +171,6 @@ public class DataInitializer {
                     visit = visitRepository.save(visit);
 
                     if (isFinished) {
-                        // Fetch services for this doctor from the repository to avoid lazy initialization issues
                         List<Service> doctorServices = serviceRepository.findByDoctorId(doctor.getId());
                         if (!doctorServices.isEmpty()) {
                             Map<Service, VisitService> visitServiceMap = new HashMap<>();
@@ -197,13 +194,11 @@ public class DataInitializer {
                             }
                             visit.setTotalCost(totalCost);
                             visitRepository.save(visit);
-                            // Save each VisitService entry
                             for (VisitService vs : visitServiceMap.values()) {
                                 visitServiceRepository.save(vs);
                             }
                         }
                     } else {
-                        // For unfinished visits, totalCost remains zero
                         visitRepository.save(visit);
                     }
                 }
@@ -289,14 +284,46 @@ public class DataInitializer {
         }
     }
 
-
+    /**
+     * This method creates random doctor-patient links. For each doctor a random subset of patients is linked,
+     * and then any patient without a link is assigned a random doctor. Finally, one connected pair is printed.
+     */
     private void populateDoctorPatientLinks() {
-        Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-        Set<Patient> patients = new HashSet<>(patientRepository.findAll());
+        List<Doctor> doctors = doctorRepository.findAll();
+        List<Patient> patients = patientRepository.findAll();
+        Random random = new Random();
+        Set<UUID> connectedPatientIds = new HashSet<>();
+
+        // For each doctor, assign a random subset of patients (at least one)
         for (Doctor doctor : doctors) {
-            for (Patient patient : patients) {
+            Collections.shuffle(patients, random);
+            int numberOfConnections = random.nextInt(patients.size()) + 1; // between 1 and total patients
+            for (int i = 0; i < numberOfConnections; i++) {
+                Patient patient = patients.get(i);
                 DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
                 doctorPatientRepository.save(doctorPatient);
+                connectedPatientIds.add(patient.getId());
+            }
+        }
+
+        // Ensure every patient is connected to at least one doctor
+        for (Patient patient : patients) {
+            if (!connectedPatientIds.contains(patient.getId())) {
+                Doctor randomDoctor = doctors.get(random.nextInt(doctors.size()));
+                DoctorPatient doctorPatient = new DoctorPatient(randomDoctor, patient);
+                doctorPatientRepository.save(doctorPatient);
+            }
+        }
+
+        // Print one connected doctor-patient pair by re-fetching them from the database to avoid LazyInitializationException
+        List<DoctorPatient> allConnections = doctorPatientRepository.findAll();
+        if (!allConnections.isEmpty()) {
+            DoctorPatient randomConnection = allConnections.get(random.nextInt(allConnections.size()));
+            Doctor doctor = doctorRepository.findById(randomConnection.getDoctor().getId()).orElse(null);
+            Patient patient = patientRepository.findById(randomConnection.getPatient().getId()).orElse(null);
+            if (doctor != null && patient != null) {
+                System.out.println("Connected Doctor Email: " + doctor.getEmail());
+                System.out.println("Connected Patient Email: " + patient.getEmail());
             }
         }
     }
@@ -308,7 +335,6 @@ public class DataInitializer {
             if (!visit.isFinished()) {
                 continue; // Skip unfinished visits
             }
-            // Fetch doctor services via the repository to avoid lazy initialization
             List<Service> doctorServices = serviceRepository.findByDoctorId(visit.getDoctor().getId());
             if (doctorServices.isEmpty()) continue;
             if (faker.bool().bool()) { // Randomly decide whether to add an extra service
