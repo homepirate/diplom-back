@@ -67,10 +67,10 @@ public class DataInitializer {
     public void init() {
         populateDoctors();
         populatePatients();
+        populateDoctorPatientLinks();
         populateServices();
         populateVisits();
         populateAttachments();
-        populateDoctorPatientLinks();
         populateExtraVisitServices();
     }
 
@@ -119,6 +119,34 @@ public class DataInitializer {
         }
     }
 
+    private void populateDoctorPatientLinks() {
+        List<Doctor> doctors = doctorRepository.findAll();
+        List<Patient> patients = patientRepository.findAll();
+        Random random = new Random();
+        Set<UUID> connectedPatientIds = new HashSet<>();
+
+        // For each doctor, assign a random subset of patients (at least one)
+        for (Doctor doctor : doctors) {
+            Collections.shuffle(patients, random);
+            int numberOfConnections = random.nextInt(patients.size()) + 1; // at least one connection
+            for (int i = 0; i < numberOfConnections; i++) {
+                Patient patient = patients.get(i);
+                DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
+                doctorPatientRepository.save(doctorPatient);
+                connectedPatientIds.add(patient.getId());
+            }
+        }
+
+        // Ensure every patient is connected to at least one doctor
+        for (Patient patient : patients) {
+            if (!connectedPatientIds.contains(patient.getId())) {
+                Doctor randomDoctor = doctors.get(random.nextInt(doctors.size()));
+                DoctorPatient doctorPatient = new DoctorPatient(randomDoctor, patient);
+                doctorPatientRepository.save(doctorPatient);
+            }
+        }
+    }
+
     private void populateServices() {
         Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
         for (Doctor doctor : doctors) {
@@ -142,31 +170,34 @@ public class DataInitializer {
     }
 
     private void populateVisits() {
-        Set<Patient> patients = new HashSet<>(patientRepository.findAll());
-        Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
+        // Build a map of linked patients for each doctor using the doctor's id as key.
+        List<DoctorPatient> allLinks = doctorPatientRepository.findAll();
+        Map<UUID, List<Patient>> doctorPatientsMap = new HashMap<>();
+        for (DoctorPatient dp : allLinks) {
+            UUID doctorId = dp.getDoctor().getId();
+            doctorPatientsMap.computeIfAbsent(doctorId, k -> new ArrayList<>()).add(dp.getPatient());
+        }
+        List<Doctor> doctors = doctorRepository.findAll();
 
         LocalDateTime startDate = LocalDateTime.now().minusMonths(1);
         LocalDateTime endDate = LocalDateTime.now();
 
         for (Doctor doctor : doctors) {
+            List<Patient> linkedPatients = doctorPatientsMap.get(doctor.getId());
+            if (linkedPatients == null || linkedPatients.isEmpty()) {
+                continue;
+            }
             LocalDateTime currentDate = startDate;
             while (currentDate.isBefore(endDate)) {
                 for (int i = 0; i < 8; i++) {
                     Visit visit = new Visit();
-
-                    Patient patient = patients.stream()
-                            .skip(faker.number().numberBetween(0, patients.size()))
-                            .findFirst().orElse(null);
-                    if (patient == null) continue;
-
+                    Patient patient = linkedPatients.get(faker.number().numberBetween(0, linkedPatients.size()));
                     visit.setDoctor(doctor);
                     visit.setPatient(patient);
                     visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12)));
                     visit.setNotes(faker.lorem().sentence());
                     boolean isFinished = faker.bool().bool();
                     visit.setFinished(isFinished);
-
-                    // Set default totalCost to avoid NULL insertion
                     visit.setTotalCost(BigDecimal.ZERO);
                     visit = visitRepository.save(visit);
 
@@ -209,10 +240,10 @@ public class DataInitializer {
 
     private void populateAttachments() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
-        int counter = 0; // Counter to alternate file types
+        int counter = 0;
 
         for (Visit visit : visits) {
-            int attachmentCount = faker.number().numberBetween(0, 3); // Each visit can have 0, 1, or 2 attachments
+            int attachmentCount = faker.number().numberBetween(0, 3);
 
             for (int i = 0; i < attachmentCount; i++) {
                 try {
@@ -222,7 +253,6 @@ public class DataInitializer {
                     String contentType;
 
                     if (counter % 2 == 0) {
-                        // Generate a PDF file
                         ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream();
                         try (PDDocument document = new PDDocument()) {
                             PDPage page = new PDPage();
@@ -249,7 +279,6 @@ public class DataInitializer {
                         randomFileName = UUID.randomUUID().toString() + ".pdf";
                         contentType = "application/pdf";
                     } else {
-                        // Generate a TXT file
                         String randomContent = faker.lorem().paragraph();
                         fileContent = randomContent.getBytes(StandardCharsets.UTF_8);
                         randomFileName = UUID.randomUUID().toString() + ".txt";
@@ -258,7 +287,6 @@ public class DataInitializer {
 
                     bais = new ByteArrayInputStream(fileContent);
 
-                    // Upload the file to MinIO
                     minioClient.putObject(
                             PutObjectArgs.builder()
                                     .bucket(bucketName)
@@ -268,14 +296,13 @@ public class DataInitializer {
                                     .build()
                     );
 
-                    // Save the attachment reference in the database
                     Attachment attachment = new Attachment();
                     attachment.setVisit(visit);
                     attachment.setFilePath(randomFileName);
                     attachment.setDescription(faker.lorem().sentence());
                     attachmentRepository.save(attachment);
 
-                    counter++; // Alternate between PDF and TXT
+                    counter++;
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -284,60 +311,15 @@ public class DataInitializer {
         }
     }
 
-    /**
-     * This method creates random doctor-patient links. For each doctor a random subset of patients is linked,
-     * and then any patient without a link is assigned a random doctor. Finally, one connected pair is printed.
-     */
-    private void populateDoctorPatientLinks() {
-        List<Doctor> doctors = doctorRepository.findAll();
-        List<Patient> patients = patientRepository.findAll();
-        Random random = new Random();
-        Set<UUID> connectedPatientIds = new HashSet<>();
-
-        // For each doctor, assign a random subset of patients (at least one)
-        for (Doctor doctor : doctors) {
-            Collections.shuffle(patients, random);
-            int numberOfConnections = random.nextInt(patients.size()) + 1; // between 1 and total patients
-            for (int i = 0; i < numberOfConnections; i++) {
-                Patient patient = patients.get(i);
-                DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
-                doctorPatientRepository.save(doctorPatient);
-                connectedPatientIds.add(patient.getId());
-            }
-        }
-
-        // Ensure every patient is connected to at least one doctor
-        for (Patient patient : patients) {
-            if (!connectedPatientIds.contains(patient.getId())) {
-                Doctor randomDoctor = doctors.get(random.nextInt(doctors.size()));
-                DoctorPatient doctorPatient = new DoctorPatient(randomDoctor, patient);
-                doctorPatientRepository.save(doctorPatient);
-            }
-        }
-
-        // Print one connected doctor-patient pair by re-fetching them from the database to avoid LazyInitializationException
-        List<DoctorPatient> allConnections = doctorPatientRepository.findAll();
-        if (!allConnections.isEmpty()) {
-            DoctorPatient randomConnection = allConnections.get(random.nextInt(allConnections.size()));
-            Doctor doctor = doctorRepository.findById(randomConnection.getDoctor().getId()).orElse(null);
-            Patient patient = patientRepository.findById(randomConnection.getPatient().getId()).orElse(null);
-            if (doctor != null && patient != null) {
-                System.out.println("Connected Doctor Email: " + doctor.getEmail());
-                System.out.println("Connected Patient Email: " + patient.getEmail());
-            }
-        }
-    }
-
-    // Extra method to add additional VisitService entries only for finished visits
     private void populateExtraVisitServices() {
         Set<Visit> visits = new HashSet<>(visitRepository.findAll());
         for (Visit visit : visits) {
             if (!visit.isFinished()) {
-                continue; // Skip unfinished visits
+                continue;
             }
             List<Service> doctorServices = serviceRepository.findByDoctorId(visit.getDoctor().getId());
             if (doctorServices.isEmpty()) continue;
-            if (faker.bool().bool()) { // Randomly decide whether to add an extra service
+            if (faker.bool().bool()) {
                 Service service = doctorServices.get(faker.number().numberBetween(0, doctorServices.size()));
                 Optional<VisitService> existingOpt = visitServiceRepository.findByVisit(visit).stream()
                         .filter(vs -> vs.getService().getId().equals(service.getId()))
