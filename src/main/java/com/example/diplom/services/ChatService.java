@@ -6,5 +6,6 @@ import java.util.List;
 public interface ChatService {
     List<ChatMessage> getChatHistory(String user1, String user2);
     ChatMessage sendMessage(ChatMessage chatMessage);
+    void deleteAllMessagesForUser(String userId);
 
 }

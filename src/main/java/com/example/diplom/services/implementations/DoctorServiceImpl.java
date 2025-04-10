@@ -436,7 +436,9 @@ public class DoctorServiceImpl implements DoctorService {
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
         Patient patient = patientRepository.findById(visitRequest.patientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + visitRequest.patientId()));
-
+        if(patient.getPhone().contains("удален")){
+            throw new ResourceNotFoundException("Пациент был удален");
+        }
         Visit visit = new Visit();
         visit.setDoctor(doctor);
         visit.setPatient(patient);

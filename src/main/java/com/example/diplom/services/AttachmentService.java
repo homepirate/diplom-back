@@ -15,4 +15,7 @@ public interface AttachmentService {
 
     void deleteAttachmentByUrl(UUID patientId, String url) throws Exception;
 
+    void deleteAttachmentById(UUID attachmentId) throws Exception;
+
+    void deleteAllAttachmentsByPatientId(UUID patientId) throws Exception;
 }

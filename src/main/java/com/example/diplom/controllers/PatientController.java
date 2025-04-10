@@ -111,6 +111,13 @@ public class PatientController implements PatientAPI {
         return ResponseEntity.ok(new StatusResponse("Update", "Profile updated successfully"));
     }
 
+    @Override
+    public ResponseEntity<StatusResponse> deleteAllPatientData() {
+        UUID patientId = getPatientId();
+        patientService.deleteAllPatientData(patientId);
+        return ResponseEntity.ok(new StatusResponse("delete", "Data deleted succesfully"));
+    }
+
     UUID getPatientId() {
         logger.debug("Извлечение идентификатора пациента из JWT");
         Jwt jwt = (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -118,4 +125,6 @@ public class PatientController implements PatientAPI {
         logger.debug("Получен идентификатор пациента: {}", patientId);
         return patientId;
     }
+
+
 }

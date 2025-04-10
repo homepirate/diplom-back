@@ -11,5 +11,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, 
 
     @Query("SELECT m FROM ChatMessageEntity m WHERE (m.senderId = :user1 AND m.receiverId = :user2) OR (m.senderId = :user2 AND m.receiverId = :user1) ORDER BY m.timestamp ASC")
     List<ChatMessageEntity> findBySenderIdAndReceiverId(@Param("user1") String user1, @Param("user2") String user2);
+    void deleteBySenderIdOrReceiverId(String senderId, String receiverId);
 
 }

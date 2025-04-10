@@ -57,5 +57,8 @@ public interface PatientAPI {
     @PutMapping(value = "/profile")
     ResponseEntity<?> updatePatientProfile(@RequestBody @Valid UpdatePatientProfileRequest updateRequest);
 
+    @Operation(summary = "Удалить (деперсонализировать) все данные пациента")
+    @DeleteMapping("/delete-all-patient-data")
+    ResponseEntity<StatusResponse> deleteAllPatientData();
 
 }

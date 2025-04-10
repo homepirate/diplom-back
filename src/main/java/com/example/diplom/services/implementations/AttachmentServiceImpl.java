@@ -4,10 +4,10 @@ import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.dtos.AttachmentDto;
 import io.minio.*;
 import io.minio.http.Method;
+import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import io.minio.ServerSideEncryptionS3;
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.Attachment;
@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -147,5 +148,55 @@ public class AttachmentServiceImpl implements AttachmentService {
         attachment.getVisit().getAttachments().remove(attachment);
         attachmentRepository.delete(attachment);
     }
+    @Transactional
+    @Override
+    public void deleteAttachmentById(UUID attachmentId) throws Exception {
+        // Retrieve the attachment by its id
+        Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found with id: " + attachmentId));
+
+        // Get the file key (file path) stored in MinIO
+        String fileKey = attachment.getFilePath();
+
+        // Remove the file from MinIO storage
+        minioClient.removeObject(
+                io.minio.RemoveObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(fileKey)
+                        .build()
+        );
+
+        // Remove attachment reference from its visit
+        if (attachment.getVisit() != null && attachment.getVisit().getAttachments() != null) {
+            attachment.getVisit().getAttachments().remove(attachment);
+        }
+
+        // Delete the attachment record from the repository
+        attachmentRepository.delete(attachment);
+    }
+
+
+    @Override
+    public void deleteAllAttachmentsByPatientId(UUID patientId) throws Exception {
+        // Retrieve all visits for the patient.
+        // (Assumes that VisitRepository has a method "findByPatientId")
+        List<Visit> visits = visitRepository.findByPatientId(patientId);
+
+        // Loop through each visit.
+        for (Visit visit : visits) {
+            // Create a defensive copy of attachments to avoid concurrent modification.
+            Set<Attachment> attachmentsCopy = Set.copyOf(visit.getAttachments());
+            for (Attachment attachment : attachmentsCopy) {
+                try {
+                    // Delete the attachment by calling the existing method that deletes by attachment ID.
+                    deleteAttachmentById(attachment.getId());
+                } catch (Exception e) {
+                    // Log error (or handle it as needed) and continue with the next attachment.
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
 
 }

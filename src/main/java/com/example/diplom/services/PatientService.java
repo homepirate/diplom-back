@@ -14,5 +14,9 @@ public interface PatientService {
     List<DoctorResponse> getPatientDoctors(UUID patientId);
 
     PatientProfileResponse profileById(UUID patientId) ;
+
+    void deleteAllPatientData(UUID patientId);
+
     void updatePatientProfile(UUID patientId, UpdatePatientProfileRequest updateRequest) ;
+
 }

@@ -3,10 +3,7 @@ package com.example.diplom.services.implementations;
 
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.ResourceNotFoundException;
-import com.example.diplom.models.Doctor;
-import com.example.diplom.models.Patient;
-import com.example.diplom.models.Visit;
-import com.example.diplom.models.VisitService;
+import com.example.diplom.models.*;
 import com.example.diplom.repositories.DoctorPatientRepository;
 import com.example.diplom.repositories.PatientRepository;
 import com.example.diplom.repositories.VisitRepository;
@@ -14,16 +11,17 @@ import com.example.diplom.repositories.VisitServiceRepository;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.PatientService;
 import com.example.diplom.services.dtos.PatientRegistrationDto;
+import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.apache.commons.lang3.StringUtils.substring;
 
 @Service
 public class PatientServiceImpl implements PatientService {
@@ -35,9 +33,10 @@ public class PatientServiceImpl implements PatientService {
     private final VisitServiceRepository visitServiceRepository;
     private final AttachmentService attachmentService;
     private final DoctorPatientRepository doctorPatientRepository;
+    private final ChatServiceImpl chatService;
 
     @Autowired
-    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository, VisitServiceRepository visitServiceRepository, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
+    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository, VisitServiceRepository visitServiceRepository, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository, ChatServiceImpl chatService) {
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
         this.modelMapper = modelMapper;
@@ -45,8 +44,9 @@ public class PatientServiceImpl implements PatientService {
         this.visitServiceRepository = visitServiceRepository;
         this.attachmentService = attachmentService;
         this.doctorPatientRepository = doctorPatientRepository;
-    }
+        this.chatService = chatService;
 
+    }
 
 
     @Override
@@ -85,7 +85,6 @@ public class PatientServiceImpl implements PatientService {
             patientRepository.save(newPatient);
         }
     }
-
 
 
     @Override
@@ -172,8 +171,52 @@ public class PatientServiceImpl implements PatientService {
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
     }
 
+    @Transactional
+    @Override
+    public void deleteAllPatientData(UUID patientId) {
+        // Retrieve the patient
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
 
+        // For each visit of the patient, delete all attachments using the new method.
+        // Create a copy of the attachments collection to avoid ConcurrentModificationException.
+        for (Visit visit : patient.getVisits()) {
+            Set<Attachment> attachmentsCopy = Set.copyOf(visit.getAttachments());
+            for (Attachment attachment : attachmentsCopy) {
+                try {
+                    // Call the new method to delete attachment by its id.
+                    attachmentService.deleteAttachmentById(attachment.getId());
+                } catch (Exception e) {
+                    // Log or handle the exception as needed
+                    e.printStackTrace();
+                }
+            }
+            // Optional: Clear the attachment set from the visit once all have been processed.
+            visit.getAttachments().clear();
+            // Save the visit update if needed.
+            visitRepository.save(visit);
+        }
 
+        // Depersonalize the patient's data by updating PII fields
+        // Depersonalize the patient’s data by updating PII fields
+
+        String uniquePart = patient.getId().toString().substring(9, 13); // characters 10 to 13
+        patient.setPhone("удален " + LocalDate.now().toString() + uniquePart);
+        patient.setFullName("удален " + LocalDate.now().toString() + uniquePart);
+        patient.setEmail("удален " + LocalDate.now().toString() + uniquePart);
+// Append the patient ID to ensure phone is unique.
+
+        patient.setBirthDate(LocalDate.now());
+        patient.setPassword(passwordEncoder.encode("deleted"));
+
+// Save the patient record after depersonalization
+        patientRepository.save(patient);
+
+// Delete all chat messages for this user.
+// (Assuming the patient's ID is used as the chat user identifier; otherwise adjust accordingly.)
+        chatService.deleteAllMessagesForUser(patient.getId().toString());
+
+    }
 
 
     @Override

@@ -68,5 +68,9 @@ public class ChatServiceImpl implements ChatService {
 
         return history;
     }
-
+    @Override
+    public void deleteAllMessagesForUser(String userId) {
+        // This method deletes all messages in which the user participates.
+        chatMessageRepository.deleteBySenderIdOrReceiverId(userId, userId);
+    }
 }
