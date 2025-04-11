@@ -200,10 +200,10 @@ public class PatientServiceImpl implements PatientService {
         // Depersonalize the patient's data by updating PII fields
         // Depersonalize the patient’s data by updating PII fields
 
-        String uniquePart = patient.getId().toString().substring(9, 13); // characters 10 to 13
-        patient.setPhone("удален " + LocalDate.now().toString() + uniquePart);
-        patient.setFullName("удален " + LocalDate.now().toString() + uniquePart);
-        patient.setEmail("удален " + LocalDate.now().toString() + uniquePart);
+        String uniquePart = patient.getId().toString().substring(9, 12); // characters 10 to 13
+        patient.setPhone("удален" + LocalDate.now().toString() + uniquePart);
+        patient.setFullName("удален" + LocalDate.now().toString() + uniquePart);
+        patient.setEmail("удален" + LocalDate.now().toString() + uniquePart);
 // Append the patient ID to ensure phone is unique.
 
         patient.setBirthDate(LocalDate.now());
