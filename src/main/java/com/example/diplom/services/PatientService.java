@@ -19,4 +19,5 @@ public interface PatientService {
 
     void updatePatientProfile(UUID patientId, UpdatePatientProfileRequest updateRequest) ;
 
+    void linkPatientWithDoctor(UUID patientId, String doctorCode);
 }

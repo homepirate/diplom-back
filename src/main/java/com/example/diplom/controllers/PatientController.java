@@ -2,6 +2,7 @@ package com.example.diplom.controllers;
 
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.controllers.interfaces.PatientAPI;
+import com.example.diplom.exceptions.AlreadyLinkedException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.exceptions.StatusResponse;
 import com.example.diplom.models.Patient;
@@ -117,6 +118,24 @@ public class PatientController implements PatientAPI {
         patientService.deleteAllPatientData(patientId);
         return ResponseEntity.ok(new StatusResponse("delete", "Data deleted succesfully"));
     }
+    @Override
+    public ResponseEntity<StatusResponse> linkDoctor(@Valid @RequestBody LinkDoctorRequest request) {
+        UUID patientId = getPatientId();
+        logger.info("Linking patient {} with doctor using code {}", patientId, request.doctorCode());
+        try {
+            patientService.linkPatientWithDoctor(patientId, request.doctorCode());
+            return ResponseEntity.ok(new StatusResponse("Link", "Patient linked with doctor successfully"));
+        } catch (ResourceNotFoundException e) {
+            logger.warn("Doctor not found with code {}: {}", request.doctorCode(), e.getMessage());
+            return ResponseEntity.status(404).body(new StatusResponse("Error", e.getMessage()));
+        } catch (AlreadyLinkedException e) {
+            logger.warn("Patient already linked: {}", e.getMessage());
+            return ResponseEntity.status(409).body(new StatusResponse("Error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error linking patient with doctor", e);
+            return ResponseEntity.status(500).body(new StatusResponse("Error", "Internal server error"));
+        }
+    }
 
     UUID getPatientId() {
         logger.debug("Извлечение идентификатора пациента из JWT");
@@ -125,6 +144,8 @@ public class PatientController implements PatientAPI {
         logger.debug("Получен идентификатор пациента: {}", patientId);
         return patientId;
     }
+
+
 
 
 }

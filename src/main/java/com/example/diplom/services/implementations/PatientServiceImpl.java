@@ -2,12 +2,11 @@ package com.example.diplom.services.implementations;
 
 
 import com.example.diplom.controllers.RR.*;
+import com.example.diplom.exceptions.AlreadyLinkedException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
-import com.example.diplom.repositories.DoctorPatientRepository;
-import com.example.diplom.repositories.PatientRepository;
-import com.example.diplom.repositories.VisitRepository;
-import com.example.diplom.repositories.VisitServiceRepository;
+import com.example.diplom.models.PK.DoctorPatientPK;
+import com.example.diplom.repositories.*;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.PatientService;
 import com.example.diplom.services.dtos.PatientRegistrationDto;
@@ -34,9 +33,10 @@ public class PatientServiceImpl implements PatientService {
     private final AttachmentService attachmentService;
     private final DoctorPatientRepository doctorPatientRepository;
     private final ChatServiceImpl chatService;
+    private final DoctorRepository doctorRepository;
 
     @Autowired
-    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository, VisitServiceRepository visitServiceRepository, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository, ChatServiceImpl chatService) {
+    public PatientServiceImpl(PatientRepository patientRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, VisitRepository visitRepository, VisitServiceRepository visitServiceRepository, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository, ChatServiceImpl chatService, DoctorRepository doctorRepository) {
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
         this.modelMapper = modelMapper;
@@ -45,6 +45,7 @@ public class PatientServiceImpl implements PatientService {
         this.attachmentService = attachmentService;
         this.doctorPatientRepository = doctorPatientRepository;
         this.chatService = chatService;
+        this.doctorRepository = doctorRepository;
 
     }
 
@@ -238,6 +239,28 @@ public class PatientServiceImpl implements PatientService {
         }
         patientRepository.save(patient);
     }
+
+    @Override
+    public void linkPatientWithDoctor(UUID patientId, String doctorCode) {
+        // Find the doctor by its unique code.
+        Doctor doctor = doctorRepository.findByUniqueCode(doctorCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with provided code"));
+
+        // Check if the patient is already linked with this doctor.
+        DoctorPatientPK pk = new DoctorPatientPK(doctor.getId(), patientId);
+        if (doctorPatientRepository.existsById(pk)) {
+            throw new AlreadyLinkedException("Patient is already linked with this doctor");
+        }
+
+        // Retrieve the patient (to ensure the record exists).
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
+
+        // Create and save the linking entity.
+        DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
+        doctorPatientRepository.save(doctorPatient);
+    }
+
 
 
 }

@@ -61,4 +61,7 @@ public interface PatientAPI {
     @DeleteMapping("/delete-all-patient-data")
     ResponseEntity<StatusResponse> deleteAllPatientData();
 
+    @Operation(summary = "Link patient with doctor by unique code")
+    @PostMapping("/link-doctor")
+    ResponseEntity<StatusResponse> linkDoctor(@RequestBody @Valid LinkDoctorRequest request);
 }
