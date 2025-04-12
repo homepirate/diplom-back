@@ -4,7 +4,7 @@ import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.AppointmentWarningException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.models.*;
-import com.example.diplom.notif.NotificationService;
+import com.example.diplom.notif.NotificationMailService;
 import com.example.diplom.repositories.*;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.DoctorService;
@@ -63,12 +63,12 @@ public class DoctorServiceImpl implements DoctorService {
     private final VisitServiceRepository visitServiceRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
-    private final NotificationService notificationService;
+    private final NotificationMailService notificationService;
     private final AttachmentService attachmentService;
     private final DoctorPatientRepository doctorPatientRepository;
 
     @Autowired
-    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, VisitServiceRepository visitServiceRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, NotificationService notificationService, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
+    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, VisitServiceRepository visitServiceRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, NotificationMailService notificationService, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.serviceRepository = serviceRepository;
@@ -421,7 +421,6 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #visitRequest.patientId())")
-
     public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
         // Check for overlapping appointments
         AppointmentCheckResult result = checkAppointmentOverlap(doctorId, visitRequest.visitDate(), null);

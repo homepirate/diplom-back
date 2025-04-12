@@ -22,6 +22,8 @@ public class NotificationService {
     // Метод запускается каждую минуту
     @Scheduled(fixedRate = 60000)
     public void sendNotifications() {
+        System.out.println("Запуск отправки уведомлений: " + LocalDateTime.now());
+
         LocalDateTime now = LocalDateTime.now();
 
         // Для врача: уведомление за 1 час до визита
