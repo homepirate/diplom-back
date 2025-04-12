@@ -3,6 +3,7 @@ package com.example.diplom.repositories;
 import com.example.diplom.models.Visit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 
@@ -37,4 +38,10 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     List<Visit> findByPatientIdAndDoctorId(UUID patientId, UUID doctorId);
 
     List<Visit> findByPatientId(UUID patientId);
+
+    @Query("SELECT v FROM Visit v WHERE v.visitDate BETWEEN :start AND :end AND v.finished = false")
+    List<Visit> findVisitsByVisitDateBetween(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }

@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/doctors/**").hasRole("DOCTOR")
                         .requestMatchers("/api/patients/**").hasAnyRole("PATIENT", "DOCTOR")
                         .requestMatchers("/ws-chat/**").permitAll() // Allow WebSocket connections
+                        .requestMatchers("/ws-notifications/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
