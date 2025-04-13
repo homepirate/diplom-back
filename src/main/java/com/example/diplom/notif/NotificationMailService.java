@@ -1,5 +1,6 @@
 package com.example.diplom.notif;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
@@ -11,6 +12,9 @@ public class NotificationMailService {
 
     private final JavaMailSender emailSender;
 
+    @Value("${spring.mail.username}")
+    private String mailUsername;
+
     @Autowired
     public NotificationMailService(JavaMailSender emailSender) {
         this.emailSender = emailSender;
@@ -20,7 +24,7 @@ public class NotificationMailService {
     public void sendVisitCreatedNotification(String email, String visitDate) {
         try {
             SimpleMailMessage mailMessage = new SimpleMailMessage();
-            mailMessage.setFrom("gfgfga@rambler.ru"); // TODO: Get from properties
+            mailMessage.setFrom(mailUsername);
             mailMessage.setTo(email);
             mailMessage.setSubject("Ваш визит создан");
             mailMessage.setText("Здравствуйте! Ваш визит назначен на: " + visitDate);

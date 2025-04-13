@@ -1,4 +1,4 @@
-package com.example.diplom.services;
+package com.example.diplom.notif;
 
 import com.example.diplom.models.Visit;
 import com.example.diplom.repositories.VisitRepository;
@@ -14,10 +14,10 @@ import java.util.List;
 public class NotificationService {
 
     @Autowired
-    private VisitRepository visitRepository; // Репозиторий для работы с визитами
+    private VisitRepository visitRepository;
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate; // Для отправки сообщений через WebSocket
+    private SimpMessagingTemplate messagingTemplate;
 
     // Метод запускается каждую минуту
     @Scheduled(fixedRate = 60000)
