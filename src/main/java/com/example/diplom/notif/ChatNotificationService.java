@@ -1,40 +1,45 @@
 package com.example.diplom.notif;
 
 import com.example.diplom.models.ChatMessage;
+import com.example.diplom.models.Doctor;
+import com.example.diplom.models.Patient;
+import com.example.diplom.repositories.DoctorRepository;
+import com.example.diplom.repositories.PatientRepository;
+import com.example.diplom.repositories.UserRepository;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @Service("ChatNotificationService")
 public class ChatNotificationService {
 
-    /**
-     * Sends a data-only FCM message for chat notifications.
-     * The message includes:
-     * - notificationType: "chat"
-     * - title: a custom title (e.g. "Новое сообщение")
-     * - message: the chat message text
-     * - senderId: who sent the message
-     * - conversationId: unique conversation identifier
-     */
+    @Autowired
+    private DoctorRepository doctorRepository;
 
-
-
+    @Autowired
+    private PatientRepository patientRepository;
 
     public void sendChatNotification(ChatMessage chatMessage) {
-        // Build a unique conversation id from the two user IDs.
         String conversationId = getConversationId(chatMessage.getSenderId(), chatMessage.getReceiverId());
-        // The recipient will subscribe to the "user_{id}" topic.
         String topic = "user_" + chatMessage.getReceiverId();
+
+        String senderName = getSenderFullName(chatMessage.getSenderId());
+        if (senderName == null) {
+            senderName = "Unknown";
+        }
 
         Message message = Message.builder()
                 .setTopic(topic)
                 .putData("notificationType", "chat")
-                .putData("title", "Новое сообщение")
+                .putData("title", senderName)
                 .putData("message", chatMessage.getContent())
                 .putData("senderId", chatMessage.getSenderId())
-             //   .putData("senderName", ) // Add this extra!
+                .putData("senderName", senderName)
                 .putData("conversationId", conversationId)
                 .setAndroidConfig(AndroidConfig.builder()
                         .setPriority(AndroidConfig.Priority.HIGH)
@@ -47,6 +52,20 @@ public class ChatNotificationService {
         } catch (Exception e) {
             System.err.println("Ошибка при отправке FCM чат уведомления: " + e.getMessage());
         }
+    }
+
+    private String getSenderFullName(String senderId) {
+
+        Optional<Doctor> doctor = doctorRepository.findById(UUID.fromString(senderId));
+        if (doctor.isPresent()) {
+            return doctor.get().getFullName();
+        }
+
+        Optional<Patient> patient = patientRepository.findById(UUID.fromString(senderId));
+        if (patient.isPresent()) {
+            return patient.get().getFullName();
+        }
+        return null;
     }
 
     private String getConversationId(String id1, String id2) {
