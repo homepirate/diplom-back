@@ -425,7 +425,7 @@ public class DoctorServiceImpl implements DoctorService {
         // Check for overlapping appointments
         AppointmentCheckResult result = checkAppointmentOverlap(doctorId, visitRequest.visitDate(), null);
         if (result == AppointmentCheckResult.ERROR) {
-            throw new IllegalArgumentException("Appointments overlap");
+            throw new IllegalArgumentException("Записи пересекаются");
         } else if (result == AppointmentCheckResult.WARNING && !visitRequest.force()) {
             throw new AppointmentWarningException("There is another appointment close to this time. Is everything right?");
         }
