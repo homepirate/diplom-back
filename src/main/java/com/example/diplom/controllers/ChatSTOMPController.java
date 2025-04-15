@@ -1,7 +1,7 @@
 package com.example.diplom.controllers;
 
 import com.example.diplom.models.ChatMessage;
-import com.example.diplom.services.ChatNotificationService;
+import com.example.diplom.notif.ChatNotificationService;
 import com.example.diplom.services.ChatService;
 
 import org.springframework.beans.factory.annotation.Autowired;

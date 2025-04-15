@@ -1,11 +1,9 @@
-package com.example.diplom.services;
+package com.example.diplom.notif;
 
 import com.example.diplom.models.ChatMessage;
-import com.example.diplom.repositories.UserRepository;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service("ChatNotificationService")
