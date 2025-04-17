@@ -43,7 +43,7 @@ public class AuthControllerTest {
         UUID userId = UUID.randomUUID();
 
         // Создаём кастомного пользователя (предполагается, что у CustomUserDetails есть соответствующий конструктор)
-        CustomUserDetails customUserDetails = new CustomUserDetails(userId, email, password, "DOCTOR", "1111");
+        CustomUserDetails customUserDetails = new CustomUserDetails(userId, email, password, "DOCTOR", "1111", "Ivan Petrov");
 
         // Мок authentication, возвращающий CustomUserDetails в качестве principal
         Authentication authenticationMock = Mockito.mock(Authentication.class);
