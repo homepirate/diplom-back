@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
@@ -19,30 +20,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class DoctorControllerIT {
+class DoctorControllerIntegrationTest {
 
     @Autowired private MockMvc mvc;
+    @Autowired private VisitRepository visitRepository;             // ← new
+    @Autowired private ServiceRepository serviceRepository;         // ← if you have one
     @Autowired private DoctorRepository doctorRepository;
     @Autowired private SpecializationRepository specializationRepository;
     @Autowired private PatientRepository patientRepository;
+    @Autowired DoctorPatientRepository doctorPatientRepository;  // ← add this
+
 
     private UUID doctorId;
     private Doctor doctor;
 
     @BeforeEach
     void setUp() {
+        visitRepository.deleteAll();
+        serviceRepository.deleteAll();
         doctorRepository.deleteAll();
         patientRepository.deleteAll();
-        Specialization spec = new Specialization("Spec");
+        specializationRepository.deleteAll();
+
+        var spec = new Specialization("Spec");
         specializationRepository.save(spec);
+
         doctor = new Doctor();
+        doctor.setFullName("Dr. Test");
         doctor.setEmail("doc@test");
+        doctor.setPhone("87777777777");
         doctor.setPassword("pass");
         doctor.setRole("ROLE_DOCTOR");
         doctor.setSpecialization(spec);
         doctor.setUniqueCode("UC");
         doctorId = doctorRepository.save(doctor).getId();
     }
+
 
     @Test
     void createService_requiresAuth() throws Exception {
@@ -54,7 +67,9 @@ class DoctorControllerIT {
 
     @Test
     void createService_withValidJwt_creates() throws Exception {
-        var jwtPost = jwt().jwt(j -> j.claim("id", doctorId.toString()));
+        var jwtPost = jwt()
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCTOR"))
+                .jwt(j -> j.claim("id", doctorId.toString()));
         mvc.perform(post("/api/doctors/services")
                         .with(jwtPost)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -71,9 +86,11 @@ class DoctorControllerIT {
 
     @Test
     void getDoctorServices_withValidJwt_returnsEmptyList() throws Exception {
-        var jwtReq = jwt().jwt(j -> j.claim("id", doctorId.toString()));
+        var jwtPost = jwt()
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCTOR"))
+                .jwt(j -> j.claim("id", doctorId.toString()));
         mvc.perform(get("/api/doctors/services")
-                        .with(jwtReq))
+                        .with(jwtPost))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }
@@ -88,20 +105,38 @@ class DoctorControllerIT {
 
     @Test
     void createVisit_withValidJwt_createsVisit() throws Exception {
+        // 1) create & save the patient with all required fields
         Patient p = new Patient();
-        p.setEmail("p@test"); p.setPhone("ph");
-        p.setFullName("PN"); p.setBirthDate(LocalDate.now());
+        p.setFullName("PN");
+        p.setEmail("p@test.com");
+        p.setPhone("89000000000");
+        p.setPassword("pass");
+        p.setRole("ROLE_PATIENT");
+        p.setBirthDate(LocalDate.now());
         patientRepository.save(p);
 
-        String body = String.format("{\"patientId\":\"%s\",\"visitDate\":\"%s\",\"notes\":\"n\",\"force\":false}",
-                p.getId(), LocalDateTime.now().toString());
+        // 2) link them so PreAuthorize passes
+        var link = new DoctorPatient();
+        link.setDoctor(doctor);
+        link.setPatient(p);
+        doctorPatientRepository.save(link);
 
-        var jwtReq = jwt().jwt(j -> j.claim("id", doctorId.toString()));
+        // 3) now call the API
+        String body = String.format(
+                "{\"patientId\":\"%s\",\"visitDate\":\"%s\",\"notes\":\"n\",\"force\":false}",
+                p.getId(), LocalDateTime.now().toString()
+        );
+
+        var jwt = jwt()
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCTOR"))
+                .jwt(j -> j.claim("id", doctorId.toString()));
+
         mvc.perform(post("/api/doctors/visits")
-                        .with(jwtReq)
+                        .with(jwt)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.visitDate").exists());
     }
 }
+

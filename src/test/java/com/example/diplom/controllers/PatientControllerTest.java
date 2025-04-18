@@ -2,7 +2,9 @@ package com.example.diplom.controllers;
 
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.controllers.RR.DoctorResponse;
+import com.example.diplom.controllers.RR.PatientProfileResponse;
 import com.example.diplom.controllers.RR.PatientVisitDetailsResponse;
+import com.example.diplom.exceptions.AlreadyLinkedException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.PatientService;
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -182,6 +185,121 @@ public class PatientControllerTest {
                 .andExpect(jsonPath("$[1].fullName").value("Doctor 2"))
                 .andExpect(jsonPath("$[1].specialization").value("Dermatology"));
     }
+    @Test
+    public void testGetPatientProfileSuccess() throws Exception {
+        PatientProfileResponse profile = new PatientProfileResponse(
+                "Иван Иванов",
+                LocalDate.of(1990, 5, 20),
+                "ivan@mail.ru",
+                "89001234567",
+                List.of()  // пустой список вложений
+        );
+
+        Mockito.when(patientService.profileById(patientId)).thenReturn(profile);
+
+        mockMvc.perform(get("/api/patients/profile")
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Иван Иванов"))
+                .andExpect(jsonPath("$.email").value("ivan@mail.ru"))
+                .andExpect(jsonPath("$.phone").value("89001234567"))
+                .andExpect(jsonPath("$.birthDate").value("1990-05-20"));
+    }
+
+
+
+
+    @Test
+    public void testUpdatePatientProfileSuccess() throws Exception {
+        String requestJson = """
+        {
+            "fullName": "Иван Иванов",
+            "phone": "89001234567"
+        }
+    """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/patients/profile")
+                        .with(csrf())
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Update"))
+                .andExpect(jsonPath("$.message").value("Profile updated successfully"));
+    }
+
+    @Test
+    public void testDeleteAllPatientDataSuccess() throws Exception {
+        // ✅ Мокаем вызов метода, чтобы избежать 500 ошибки при выполнении
+        Mockito.doNothing().when(patientService).deleteAllPatientData(eq(patientId));
+
+        mockMvc.perform(delete("/api/patients/delete-all-patient-data")
+                        .with(csrf())
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("delete"))
+                .andExpect(jsonPath("$.message").value("Data deleted succesfully"));
+    }
+
+
+    @Test
+    public void testLinkDoctorSuccess() throws Exception {
+        String json = """
+        {"doctorCode": "1234567"}
+    """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/patients/link-doctor")
+                        .with(csrf())
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Link"))
+                .andExpect(jsonPath("$.message").value("Patient linked with doctor successfully"));
+    }
+
+    @Test
+    public void testLinkDoctorNotFound() throws Exception {
+        String json = """
+        {"doctorCode": "1234567"}
+    """;
+
+        doThrow(new ResourceNotFoundException("Doctor not found"))
+                .when(patientService).linkPatientWithDoctor(eq(patientId), eq("1234567"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/patients/link-doctor")
+                        .with(csrf())
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value("Error"))
+                .andExpect(jsonPath("$.message").value("Doctor not found"));
+    }
+
+    @Test
+    public void testLinkDoctorAlreadyLinked() throws Exception {
+        String json = """
+        {"doctorCode": "1234567"}
+    """;
+
+        doThrow(new AlreadyLinkedException("Already linked"))
+                .when(patientService).linkPatientWithDoctor(eq(patientId), eq("1234567"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/patients/link-doctor")
+                        .with(csrf())
+                        .with(jwt().jwt(jwt -> jwt.claim("id", patientId.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value("Error"))
+                .andExpect(jsonPath("$.message").value("Already linked"));
+    }
+
 
     @Test
     public void testGetVisitsByPatient() throws Exception {
