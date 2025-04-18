@@ -30,5 +30,6 @@ public class DoctorRegistrationDto extends BaseRegistrationDto {
     public void setUniqueCode(String uniqueCode) {
         this.uniqueCode = uniqueCode;
     }
+
 }
 
