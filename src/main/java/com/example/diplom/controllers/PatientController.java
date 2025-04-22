@@ -90,17 +90,17 @@ public class PatientController implements PatientAPI {
     }
 
     @Override
-    public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient() {
+    public ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient(UUID id) {
         logger.info("Получение списка визитов пациента");
-        UUID patientId = getPatientId();
+        UUID patientId = (id != null) ? id : getPatientId();
         List<PatientVisitDetailsResponse> visits = patientService.getVisitsByPatient(patientId);
         logger.debug("Список визитов пациента: {}", visits);
         return ResponseEntity.ok(visits);
     }
 
     @Override
-    public ResponseEntity<PatientProfileResponse> getPatientProfile() {
-        UUID patientId = getPatientId();
+    public ResponseEntity<PatientProfileResponse> getPatientProfile(UUID id) {
+        UUID patientId = (id != null) ? id : getPatientId();
         PatientProfileResponse response = patientService.profileById(patientId);
         return ResponseEntity.ok(response);
     }

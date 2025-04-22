@@ -3,6 +3,7 @@ package com.example.diplom.controllers.interfaces;
 import com.example.diplom.controllers.RR.*;
 import com.example.diplom.exceptions.StatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @Tag(name = "patients")
 @ApiResponses({
@@ -43,7 +45,8 @@ public interface PatientAPI {
 
     @Operation(summary = "Получить визиты пациента")
     @GetMapping(value = "/get-patient-visits")
-    ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient();
+    ResponseEntity<List<PatientVisitDetailsResponse>> getVisitsByPatient(@Parameter(description = "ID пациента (если не указан, берётся из контекста авторизации)", required = false)
+                                                                         @RequestParam(value = "id", required = false) UUID id);
 
     @Operation(summary = "Получить всех врачей пациента")
     @GetMapping(value = "/doctors")
@@ -51,7 +54,8 @@ public interface PatientAPI {
 
     @Operation(summary = "Получить профиль пациента")
     @GetMapping(value = "/profile")
-    ResponseEntity<PatientProfileResponse> getPatientProfile();
+    ResponseEntity<PatientProfileResponse> getPatientProfile(@Parameter(description = "ID пациента (если не указан, берётся из контекста авторизации)", required = false)
+                                                             @RequestParam(value = "id", required = false) UUID id);
 
     @Operation(summary = "Обновить профиль пациента")
     @PutMapping(value = "/profile")
