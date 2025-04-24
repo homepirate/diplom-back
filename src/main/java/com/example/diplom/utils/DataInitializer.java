@@ -1,7 +1,9 @@
 package com.example.diplom.utils;
 
+import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.models.*;
 import com.example.diplom.repositories.*;
+import com.example.diplom.services.AttachmentService;
 import com.github.javafaker.Faker;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
@@ -35,6 +38,7 @@ public class DataInitializer {
     private final VisitServiceRepository visitServiceRepository;
     private final SpecializationRepository specializationRepository;
     private final MinioClient minioClient;
+    private final AttachmentService attachmentService;
 
     private final Faker faker;
     private final PasswordEncoder passwordEncoder;
@@ -49,7 +53,7 @@ public class DataInitializer {
                            VisitServiceRepository visitServiceRepository,
                            SpecializationRepository specializationRepository,
                            PasswordEncoder passwordEncoder,
-                           MinioClient minioClient) {
+                           MinioClient minioClient, AttachmentService attachmentService) {
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
         this.visitRepository = visitRepository;
@@ -60,6 +64,7 @@ public class DataInitializer {
         this.specializationRepository = specializationRepository;
         this.passwordEncoder = passwordEncoder;
         this.minioClient = minioClient;
+        this.attachmentService = attachmentService;
         this.faker = new Faker();
     }
 
@@ -237,9 +242,8 @@ public class DataInitializer {
             }
         }
     }
-
-    private void populateAttachments() {
-        Set<Visit> visits = new HashSet<>(visitRepository.findAll());
+    public void populateAttachments() {
+        List<Visit> visits = visitRepository.findAll();
         int counter = 0;
 
         for (Visit visit : visits) {
@@ -247,64 +251,68 @@ public class DataInitializer {
 
             for (int i = 0; i < attachmentCount; i++) {
                 try {
-                    ByteArrayInputStream bais;
                     byte[] fileContent;
                     String randomFileName;
                     String contentType;
 
+                    // Генерируем PDF или TXT
                     if (counter % 2 == 0) {
-                        ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream();
+                        // --- PDF ---
+                        ByteArrayOutputStream pdfOs = new ByteArrayOutputStream();
                         try (PDDocument document = new PDDocument()) {
                             PDPage page = new PDPage();
                             document.addPage(page);
-
-                            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                                contentStream.setFont(PDType1Font.HELVETICA_BOLD, 14);
-                                contentStream.beginText();
-                                contentStream.newLineAtOffset(100, 700);
-                                contentStream.showText("Medical Report for Visit: " + visit.getId());
-                                contentStream.newLineAtOffset(0, -20);
-                                contentStream.showText("Doctor: " + visit.getDoctor().getFullName());
-                                contentStream.newLineAtOffset(0, -20);
-                                contentStream.showText("Patient: " + visit.getPatient().getFullName());
-                                contentStream.newLineAtOffset(0, -20);
-                                contentStream.showText("Notes: " + visit.getNotes());
-                                contentStream.endText();
+                            try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
+                                cs.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                                cs.beginText();
+                                cs.newLineAtOffset(100, 700);
+                                cs.showText("Medical Report for Visit: " + visit.getId());
+                                cs.newLineAtOffset(0, -20);
+                                cs.showText("Doctor: " + visit.getDoctor().getFullName());
+                                cs.newLineAtOffset(0, -20);
+                                cs.showText("Patient: " + visit.getPatient().getFullName());
+                                cs.newLineAtOffset(0, -20);
+                                cs.showText("Notes: " + visit.getNotes());
+                                cs.endText();
                             }
-
-                            document.save(pdfOutputStream);
+                            document.save(pdfOs);
                         }
-
-                        fileContent = pdfOutputStream.toByteArray();
-                        randomFileName = UUID.randomUUID().toString() + ".pdf";
+                        fileContent = pdfOs.toByteArray();
+                        randomFileName = UUID.randomUUID() + ".pdf";
                         contentType = "application/pdf";
+
                     } else {
-                        String randomContent = faker.lorem().paragraph();
-                        fileContent = randomContent.getBytes(StandardCharsets.UTF_8);
-                        randomFileName = UUID.randomUUID().toString() + ".txt";
+                        // --- TXT ---
+                        String txt = faker.lorem().paragraph();
+                        fileContent = txt.getBytes(StandardCharsets.UTF_8);
+                        randomFileName = UUID.randomUUID() + ".txt";
                         contentType = "text/plain";
                     }
 
-                    bais = new ByteArrayInputStream(fileContent);
-
-                    minioClient.putObject(
-                            PutObjectArgs.builder()
-                                    .bucket(bucketName)
-                                    .object(randomFileName)
-                                    .stream(bais, fileContent.length, -1)
-                                    .contentType(contentType)
-                                    .build()
+                    // Оборачиваем в MultipartFile
+                    MockMultipartFile multipartFile = new MockMultipartFile(
+                            "file",                  // поле формы
+                            randomFileName,          // исходное имя файла
+                            contentType,             // MIME
+                            fileContent              // данные
                     );
 
-                    Attachment attachment = new Attachment();
-                    attachment.setVisit(visit);
-                    attachment.setFilePath(randomFileName);
-                    attachment.setDescription(faker.lorem().sentence());
-                    attachmentRepository.save(attachment);
+                    // Формируем запрос и вызываем сервис
+                    AddAttachmentRequest req = new AddAttachmentRequest(
+                            visit.getId(),
+                            multipartFile,
+                            faker.lorem().sentence()
+                    );
+
+                    attachmentService.addAttachment(
+                            visit.getPatient().getId(),
+                            req
+                    );
 
                     counter++;
 
                 } catch (Exception e) {
+                    // Логируем, но не останавливаемся на ошибке одного файла
                     e.printStackTrace();
                 }
             }
