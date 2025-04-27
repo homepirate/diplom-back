@@ -12,6 +12,9 @@ import com.example.diplom.services.dtos.PatientRegistrationDto;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +22,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@CacheConfig(cacheNames = "patientCache")
 @Service
 public class PatientServiceImpl implements PatientService {
 
@@ -32,6 +36,8 @@ public class PatientServiceImpl implements PatientService {
     private final ChatServiceImpl chatService;
     private final DoctorRepository doctorRepository;
 
+    private final RedisTemplate<String, Object> redisTemplate;
+
     @Autowired
     public PatientServiceImpl(
             PatientRepository patientRepository,
@@ -42,7 +48,7 @@ public class PatientServiceImpl implements PatientService {
             AttachmentService attachmentService,
             DoctorPatientRepository doctorPatientRepository,
             ChatServiceImpl chatService,
-            DoctorRepository doctorRepository
+            DoctorRepository doctorRepository, RedisTemplate<String, Object> redisTemplate
     ) {
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
@@ -53,6 +59,7 @@ public class PatientServiceImpl implements PatientService {
         this.doctorPatientRepository = doctorPatientRepository;
         this.chatService = chatService;
         this.doctorRepository = doctorRepository;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -85,10 +92,21 @@ public class PatientServiceImpl implements PatientService {
             Patient newPatient = modelMapper.map(dto, Patient.class);
             newPatient.setIsTemporary(false);
             patientRepository.save(newPatient);
+            evictPatientCache(newPatient.getId());
+
+        }
+    }
+
+    private void evictPatientCache(UUID patientId) {
+        String pattern = patientId.toString() + ":*";
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
         }
     }
 
     @Override
+    @Cacheable(key = "#patientId + ':' + #root.methodName")
     public List<PatientVisitDetailsResponse> getVisitsByPatient(UUID patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + patientId));
@@ -125,6 +143,7 @@ public class PatientServiceImpl implements PatientService {
     }
 
     @Override
+    @Cacheable(key = "#patientId + ':' + #root.methodName")
     public List<DoctorResponse> getPatientDoctors(UUID patientId) {
         List<Doctor> doctors = doctorPatientRepository.findDoctorsByPatientId(patientId);
 
@@ -138,6 +157,7 @@ public class PatientServiceImpl implements PatientService {
     }
 
     @Override
+    @Cacheable(key = "#patientId + ':' + #root.methodName")
     public PatientProfileResponse profileById(UUID patientId) throws ResourceNotFoundException {
         return patientRepository.findById(patientId)
                 .map(patient -> {
@@ -161,6 +181,8 @@ public class PatientServiceImpl implements PatientService {
     public void deleteAllPatientData(UUID patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
+
+        evictPatientCache(patientId);
 
         for (Visit visit : patient.getVisits()) {
             Set<Attachment> attachmentsCopy = Set.copyOf(visit.getAttachments());
@@ -204,6 +226,9 @@ public class PatientServiceImpl implements PatientService {
             patient.setPhone(updateRequest.phone());
         }
         patientRepository.save(patient);
+
+        evictPatientCache(patientId);
+
     }
 
     @Override
@@ -221,6 +246,8 @@ public class PatientServiceImpl implements PatientService {
 
         DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
         doctorPatientRepository.save(doctorPatient);
+        evictPatientCache(patient.getId());
+
     }
 
     private List<String> buildAttachmentUrls(Collection<Attachment> attachments) {
