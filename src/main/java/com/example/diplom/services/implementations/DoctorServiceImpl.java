@@ -286,48 +286,9 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
     public VisitDetailsResponse getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest) {
-        // Change signature to: getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest)
-        // for consistency with the same pattern
         Visit visit = visitRepository.findById(visitIdRequest.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + visitIdRequest.id()));
-
-        List<com.example.diplom.models.Service> docServices = serviceRepository.findByDoctorId(doctorId);
-        List<VisitService> visitServices = visitServiceRepository.findByVisit(visit);
-
-        Map<UUID, Integer> serviceQuantities = visitServices.stream()
-                .collect(Collectors.toMap(vs -> vs.getService().getId(), VisitService::getQuantity));
-
-        List<VisitServicesDetailsResponse> services = docServices.stream()
-                .map(s -> new VisitServicesDetailsResponse(
-                        s.getId(),
-                        s.getName(),
-                        s.getPrice(),
-                        serviceQuantities.getOrDefault(s.getId(), 0)
-                ))
-                .toList();
-
-        // attachments
-        List<String> attachmentUrls = visit.getAttachments().stream()
-                .map(a -> {
-                    try {
-                        return attachmentService.getPresignedUrlForAttachment(a.getId());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .toList();
-
-        return new VisitDetailsResponse(
-                visit.getId(),
-                visit.getVisitDate(),
-                visit.isFinished(),
-                visit.getNotes() != null ? visit.getNotes() : "",
-                visit.getTotalCost(),
-                services,
-                attachmentUrls
-        );
+        return toVisitDetailsResponse(visit);
     }
 
     // -------------------------------------------------
@@ -338,54 +299,17 @@ public class DoctorServiceImpl implements DoctorService {
     public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + patientId));
-
-        // All visits for this doc + that patient
         List<Visit> visits = visitRepository.findByPatientIdAndDoctorId(patientId, doctorId);
-        // map them
-        List<VisitDetailsResponse> visitDetails = visits.stream()
-                .map(visit -> {
-                    List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
-
-                    List<VisitServicesDetailsResponse> serviceResponses = vsList.stream()
-                            .map(vs -> new VisitServicesDetailsResponse(
-                                    vs.getServiceId(),
-                                    vs.getService().getName(),
-                                    vs.getService().getPrice(),
-                                    vs.getQuantity()
-                            ))
-                            .toList();
-
-                    List<String> attachmentUrls = visit.getAttachments().stream()
-                            .map(a -> {
-                                try {
-                                    return attachmentService.getPresignedUrlForAttachment(a.getId());
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                    return null;
-                                }
-                            })
-                            .filter(Objects::nonNull)
-                            .toList();
-
-                    return new VisitDetailsResponse(
-                            visit.getId(),
-                            visit.getVisitDate(),
-                            visit.isFinished(),
-                            visit.getNotes() != null ? visit.getNotes() : "",
-                            visit.getTotalCost(),
-                            serviceResponses,
-                            attachmentUrls
-                    );
-                })
+        List<VisitDetailsResponse> details = visits.stream()
+                .map(this::toVisitDetailsResponse)
                 .toList();
-
         return new PatientMedCardResponse(
                 patient.getId(),
                 patient.getFullName(),
                 patient.getBirthDate(),
                 patient.getEmail(),
                 patient.getPhone(),
-                visitDetails
+                details
         );
     }
 
@@ -774,6 +698,42 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
 
+    private VisitDetailsResponse toVisitDetailsResponse(Visit visit) {
+        List<VisitServicesDetailsResponse> services = visitServiceRepository.findByVisit(visit).stream()
+                .map(vs -> new VisitServicesDetailsResponse(
+                        vs.getService().getId(),
+                        vs.getService().getName(),
+                        vs.getService().getPrice(),
+                        vs.getQuantity()))
+                .toList();
+
+        List<String> attachments = buildAttachmentUrls(visit.getAttachments());
+
+        return new VisitDetailsResponse(
+                visit.getId(),
+                visit.getVisitDate(),
+                visit.isFinished(),
+                Optional.ofNullable(visit.getNotes()).orElse(""),
+                visit.getTotalCost(),
+                services,
+                attachments
+        );
+    }
+
+
+    private List<String> buildAttachmentUrls(Collection<Attachment> attachments) {
+        return attachments.stream()
+                .map(a -> {
+                    try {
+                        return attachmentService.getPresignedUrlForAttachment(a.getId());
+                    } catch (Exception e) {
+                        // логируем и пропускаем неуспешные
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
 
 
 }
