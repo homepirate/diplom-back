@@ -7,6 +7,7 @@ import io.minio.http.Method;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.exceptions.ResourceNotFoundException;
@@ -31,6 +32,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final AttachmentRepository attachmentRepository;
     private final ModelMapper modelMapper;
     private final MinioClient minioClient;
+    private final RedisTemplate<String, Object> redisTemplate;
+
 
     @Value("${minio.bucket.name}")
     private String bucketName;
@@ -39,11 +42,22 @@ public class AttachmentServiceImpl implements AttachmentService {
     public AttachmentServiceImpl(VisitRepository visitRepository,
                                  AttachmentRepository attachmentRepository,
                                  ModelMapper modelMapper,
-                                 MinioClient minioClient) {
+                                 MinioClient minioClient, RedisTemplate<String, Object> redisTemplate) {
         this.visitRepository = visitRepository;
         this.attachmentRepository = attachmentRepository;
         this.modelMapper = modelMapper;
         this.minioClient = minioClient;
+        this.redisTemplate = redisTemplate;
+    }
+
+
+    private void evictPatientCache(UUID patientId) {
+        String cacheName = "patientCache";
+        String pattern = cacheName + "::" + patientId + ":*";
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     @Override
@@ -53,6 +67,8 @@ public class AttachmentServiceImpl implements AttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found for the given patient"));
 
         String fileName;
+
+        evictPatientCache(patientId);
         try {
             fileName = storeFile(request.file());
         } catch (Exception e) {

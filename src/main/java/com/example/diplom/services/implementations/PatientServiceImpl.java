@@ -98,7 +98,8 @@ public class PatientServiceImpl implements PatientService {
     }
 
     private void evictPatientCache(UUID patientId) {
-        String pattern = patientId.toString() + ":*";
+        String cacheName = "patientCache";
+        String pattern = cacheName + "::" + patientId + ":*";
         Set<String> keys = redisTemplate.keys(pattern);
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
