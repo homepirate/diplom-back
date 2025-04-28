@@ -38,6 +38,9 @@ import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,6 +55,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@CacheConfig(cacheNames = "doctorCache")
 @Service
 public class DoctorServiceImpl implements DoctorService {
 
@@ -66,9 +70,23 @@ public class DoctorServiceImpl implements DoctorService {
     private final NotificationMailService notificationService;
     private final AttachmentService attachmentService;
     private final DoctorPatientRepository doctorPatientRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
-    public DoctorServiceImpl(DoctorRepository doctorRepository, VisitRepository visitRepository, ServiceRepository serviceRepository, SpecializationRepository specializationRepository, PatientRepository patientRepository, VisitServiceRepository visitServiceRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, NotificationMailService notificationService, AttachmentService attachmentService, DoctorPatientRepository doctorPatientRepository) {
+    public DoctorServiceImpl(
+            DoctorRepository doctorRepository,
+            VisitRepository visitRepository,
+            ServiceRepository serviceRepository,
+            SpecializationRepository specializationRepository,
+            PatientRepository patientRepository,
+            VisitServiceRepository visitServiceRepository,
+            PasswordEncoder passwordEncoder,
+            ModelMapper modelMapper,
+            NotificationMailService notificationService,
+            AttachmentService attachmentService,
+            DoctorPatientRepository doctorPatientRepository,
+            RedisTemplate<String, Object> redisTemplate
+    ) {
         this.doctorRepository = doctorRepository;
         this.visitRepository = visitRepository;
         this.serviceRepository = serviceRepository;
@@ -80,6 +98,16 @@ public class DoctorServiceImpl implements DoctorService {
         this.notificationService = notificationService;
         this.attachmentService = attachmentService;
         this.doctorPatientRepository = doctorPatientRepository;
+        this.redisTemplate = redisTemplate;
+    }
+
+    private void evictDoctorCache(UUID doctorId) {
+        String cacheName = "doctorCache";
+        String pattern = cacheName + "::" + doctorId + ":*";
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     // -------------------------------------------------
@@ -114,6 +142,7 @@ public class DoctorServiceImpl implements DoctorService {
      */
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #month + ':' + #year")
     public List<VisitDto> getDoctorVisitDates(UUID doctorId, int month, int year) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
@@ -131,6 +160,7 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #date")
     public List<VisitDto> getDoctorVisitDatesByDay(UUID doctorId, String date) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
@@ -167,6 +197,8 @@ public class DoctorServiceImpl implements DoctorService {
         newService.setDoctor(doctor);
 
         serviceRepository.save(newService);
+        evictDoctorCache(doctorId);
+
     }
 
     // -------------------------------------------------
@@ -174,6 +206,7 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName")
     public List<ServiceResponse> getDoctorServices(UUID doctorId) {
         // Just ensures the doc from JWT == #doctorId
         Doctor doctor = doctorRepository.findById(doctorId)
@@ -203,6 +236,8 @@ public class DoctorServiceImpl implements DoctorService {
 
         service.setPrice(updateServiceRequest.price());
         serviceRepository.save(service);
+        evictDoctorCache(doctorId);
+
     }
 
     // -------------------------------------------------
@@ -210,6 +245,7 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName")
     public List<PatientResponse> getDoctorPatients(UUID doctorId) {
 
         List<Patient> patients = doctorPatientRepository.findPatientsByDoctorId(doctorId);
@@ -244,6 +280,7 @@ public class DoctorServiceImpl implements DoctorService {
             throw new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id());
         }
         visitRepository.deleteById(visitIdRequest.id());
+        evictDoctorCache(doctorId);
     }
 
     // -------------------------------------------------
@@ -278,6 +315,7 @@ public class DoctorServiceImpl implements DoctorService {
         visit.setTotalCost(totalCost);
 
         visitRepository.save(visit);
+        evictDoctorCache(doctorId);
     }
 
     // -------------------------------------------------
@@ -285,6 +323,7 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #visitIdRequest.id()")
     public VisitDetailsResponse getFinishVisitData(UUID doctorId, VisitIdRequest visitIdRequest) {
         Visit visit = visitRepository.findById(visitIdRequest.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found " + visitIdRequest.id()));
@@ -296,6 +335,7 @@ public class DoctorServiceImpl implements DoctorService {
     // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #patientId)")
+    @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #patientId")
     public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + patientId));
@@ -372,6 +412,7 @@ public class DoctorServiceImpl implements DoctorService {
 
         Visit saved = visitRepository.save(visit);
         notificationService.sendVisitCreatedNotification(patient.getEmail(), saved.getVisitDate().toString());
+        evictDoctorCache(doctorId);
 
         return new CreateVisitResponse(saved.getVisitDate(), saved.getId());
     }
@@ -392,6 +433,7 @@ public class DoctorServiceImpl implements DoctorService {
 
         visit.setVisitDate(rearrangeRequest.newVisitDate());
         visitRepository.save(visit);
+        evictDoctorCache(doctorId);
         notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
     }
 
@@ -692,6 +734,7 @@ public class DoctorServiceImpl implements DoctorService {
         dp.setDoctor(doctor);
         dp.setPatient(savedPatient);
         doctorPatientRepository.save(dp);
+        evictDoctorCache(doctorId);
 
         // Return response DTO
         return new PatientResponse(savedPatient.getFullName(), savedPatient.getBirthDate(), savedPatient.getId());

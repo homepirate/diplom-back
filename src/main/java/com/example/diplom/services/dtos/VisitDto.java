@@ -2,8 +2,9 @@ package com.example.diplom.services.dtos;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public class VisitDto {
@@ -13,19 +14,26 @@ public class VisitDto {
     private DoctorDto doctor;
     private LocalDateTime visitDate;
     private String notes;
-    private Set<VisitServiceDto> visitServices = new HashSet<>();
+    private List<VisitServiceDto> visitServices = new ArrayList<>();
     private AttachmentDto attachment;
     private boolean isFinished;
     private BigDecimal totalCost;
 
-    public VisitDto(UUID id, PatientDto patient, DoctorDto doctor, LocalDateTime visitDate, String notes,
-                    Set<VisitServiceDto> visitServices, AttachmentDto attachment, boolean isFinished, BigDecimal totalCost) {
+    public VisitDto(UUID id,
+                    PatientDto patient,
+                    DoctorDto doctor,
+                    LocalDateTime visitDate,
+                    String notes,
+                    Collection<VisitServiceDto> visitServices,
+                    AttachmentDto attachment,
+                    boolean isFinished,
+                    BigDecimal totalCost) {
         this.id = id;
         this.patient = patient;
         this.doctor = doctor;
         this.visitDate = visitDate;
         this.notes = notes;
-        this.visitServices = visitServices;
+        setVisitServices(visitServices);
         this.attachment = attachment;
         this.isFinished = isFinished;
         this.totalCost = totalCost;
@@ -74,12 +82,19 @@ public class VisitDto {
         this.notes = notes;
     }
 
-    public Set<VisitServiceDto> getVisitServices() {
+    public List<VisitServiceDto> getVisitServices() {
         return visitServices;
     }
 
-    public void setVisitServices(Set<VisitServiceDto> visitServices) {
-        this.visitServices = visitServices;
+    /**
+     * Принимает любую коллекцию сервисов (включая Set), преобразует в List для упорядоченного хранения
+     */
+    public void setVisitServices(Collection<VisitServiceDto> visitServices) {
+        if (visitServices == null) {
+            this.visitServices = new ArrayList<>();
+        } else {
+            this.visitServices = new ArrayList<>(visitServices);
+        }
     }
 
     public AttachmentDto getAttachment() {
