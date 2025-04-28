@@ -15,10 +15,8 @@ public class ModelMapperConfig {
 
     @Bean
     public ModelMapper modelMapper() {
-//        return new ModelMapper();
         ModelMapper mapper = new ModelMapper();
 
-        // Отключаем мердж коллекций, задаём ArrayList по-умолчанию и игнорируем неоднозначности
         mapper.getConfiguration()
                 .setCollectionsMergeEnabled(false)
                 .setAmbiguityIgnored(true);
