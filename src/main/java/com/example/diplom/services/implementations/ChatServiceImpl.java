@@ -51,6 +51,7 @@ public class ChatServiceImpl implements ChatService {
 
         // **Update the ChatMessage object with the timestamp from the entity**
         chatMessage.setTimestamp(messageEntity.getTimestamp());
+        System.out.println("Add new message" + chatMessage);
 
         return chatMessage;
     }

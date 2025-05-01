@@ -3,6 +3,8 @@ package com.example.diplom.services;
 import com.example.diplom.models.ChatMessage;
 import com.example.diplom.models.ChatMessageEntity;
 import com.example.diplom.repositories.ChatMessageRepository;
+import com.example.diplom.repositories.DoctorRepository;
+import com.example.diplom.repositories.PatientRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -23,13 +25,16 @@ class ChatServiceImplTest {
     private ChatServiceImpl service;
     private TextEncryptor textEncryptor;
 
+    private  DoctorRepository doctorRepository;
+    private PatientRepository patientRepository;
+
     private final String PASSWORD = "testPass";
     private final String SALT     = "1234";
 
     @BeforeEach
     void setUp() {
         repo = mock(ChatMessageRepository.class);
-        service = new ChatServiceImpl(repo, PASSWORD, SALT);
+        service = new ChatServiceImpl(repo, PASSWORD, SALT, doctorRepository, patientRepository);
         textEncryptor = Encryptors.text(PASSWORD, SALT);
     }
 
