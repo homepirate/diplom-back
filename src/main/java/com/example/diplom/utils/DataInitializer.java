@@ -4,6 +4,7 @@ import com.example.diplom.controllers.RR.AddAttachmentRequest;
 import com.example.diplom.models.*;
 import com.example.diplom.repositories.*;
 import com.example.diplom.services.AttachmentService;
+import com.example.diplom.services.ChatService;
 import com.github.javafaker.Faker;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -39,6 +40,8 @@ public class DataInitializer {
     private final SpecializationRepository specializationRepository;
     private final MinioClient minioClient;
     private final AttachmentService attachmentService;
+    private final ChatService chatService;        // 1. Зависимость на ChatService
+
 
     private final Faker faker;
     private final PasswordEncoder passwordEncoder;
@@ -53,7 +56,7 @@ public class DataInitializer {
                            VisitServiceRepository visitServiceRepository,
                            SpecializationRepository specializationRepository,
                            PasswordEncoder passwordEncoder,
-                           MinioClient minioClient, AttachmentService attachmentService) {
+                           MinioClient minioClient, AttachmentService attachmentService, ChatService chatService) {
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
         this.visitRepository = visitRepository;
@@ -65,6 +68,7 @@ public class DataInitializer {
         this.passwordEncoder = passwordEncoder;
         this.minioClient = minioClient;
         this.attachmentService = attachmentService;
+        this.chatService = chatService;
         this.faker = new Faker();
     }
 
@@ -77,6 +81,7 @@ public class DataInitializer {
         populateVisits();
         populateAttachments();
         populateExtraVisitServices();
+        populateChatMessages();
     }
 
     private void populateSpecializations() {
@@ -345,6 +350,37 @@ public class DataInitializer {
                 visitServiceRepository.save(vs);
                 visit.setTotalCost(visit.getTotalCost().add(service.getPrice()));
                 visitRepository.save(visit);
+            }
+        }
+    }
+
+
+    private void populateChatMessages() {
+        // Получаем все связи «врач–пациент»
+        List<DoctorPatient> links = doctorPatientRepository.findAll();
+
+        for (DoctorPatient dp : links) {
+            String doctorId  = dp.getDoctor().getId().toString();
+            String patientId = dp.getPatient().getId().toString();
+
+            // Случайное количество сообщений в одну сторону
+            int count = faker.number().numberBetween(1, 5);
+            for (int i = 0; i < count; i++) {
+                // Врач → Пациент
+                ChatMessage msgFromDoctor = new ChatMessage();
+                msgFromDoctor.setSenderId(doctorId);
+                msgFromDoctor.setReceiverId(patientId);
+                msgFromDoctor.setContent(faker.lorem().sentence());
+                msgFromDoctor.setType(ChatMessage.MessageType.CHAT);
+                chatService.sendMessage(msgFromDoctor);
+
+                // Пациент → Врач
+                ChatMessage msgFromPatient = new ChatMessage();
+                msgFromPatient.setSenderId(patientId);
+                msgFromPatient.setReceiverId(doctorId);
+                msgFromPatient.setContent(faker.lorem().sentence());
+                msgFromPatient.setType(ChatMessage.MessageType.CHAT);
+                chatService.sendMessage(msgFromPatient);
             }
         }
     }
