@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +45,9 @@ class AttachmentServiceImplTest {
     private ModelMapper modelMapper;
     @Mock
     private MinioClient minioClient;
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
 
     @InjectMocks
     private AttachmentServiceImpl service;

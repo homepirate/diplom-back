@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
@@ -36,6 +37,9 @@ class PatientServiceImplTest {
     @Mock private DoctorPatientRepository doctorPatientRepository;
     @Mock private ChatServiceImpl chatService;
     @Mock private DoctorRepository doctorRepository;
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
 
     @InjectMocks private PatientServiceImpl service;
 
