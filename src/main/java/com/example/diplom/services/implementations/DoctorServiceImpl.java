@@ -110,6 +110,15 @@ public class DoctorServiceImpl implements DoctorService {
         }
     }
 
+    private void evictPatientCache(UUID patientId) {
+        String cacheName = "patientCache";
+        String pattern = cacheName + "::" + patientId + ":*";
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
     // -------------------------------------------------
     // No special ownership check for registering a new doctor
     // -------------------------------------------------
@@ -279,8 +288,11 @@ public class DoctorServiceImpl implements DoctorService {
         if (!visitRepository.existsById(visitIdRequest.id())) {
             throw new ResourceNotFoundException("Visit not found with id " + visitIdRequest.id());
         }
+        Visit visit = visitRepository.findById(visitIdRequest.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Visit not found"));
         visitRepository.deleteById(visitIdRequest.id());
         evictDoctorCache(doctorId);
+        evictPatientCache(visit.getPatient().getId());
     }
 
     // -------------------------------------------------
@@ -316,6 +328,8 @@ public class DoctorServiceImpl implements DoctorService {
 
         visitRepository.save(visit);
         evictDoctorCache(doctorId);
+        evictPatientCache(visit.getPatient().getId());
+
     }
 
     // -------------------------------------------------
