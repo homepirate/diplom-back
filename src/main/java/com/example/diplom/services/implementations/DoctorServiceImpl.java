@@ -395,6 +395,8 @@ public class DoctorServiceImpl implements DoctorService {
                 visitServiceRepository.save(newVs);
             }
         }
+        evictPatientCache(visit.getPatient().getId());
+
     }
 
     @Override
@@ -427,6 +429,7 @@ public class DoctorServiceImpl implements DoctorService {
         Visit saved = visitRepository.save(visit);
         notificationService.sendVisitCreatedNotification(patient.getEmail(), saved.getVisitDate().toString());
         evictDoctorCache(doctorId);
+        evictPatientCache(visit.getPatient().getId());
 
         return new CreateVisitResponse(saved.getVisitDate(), saved.getId());
     }
@@ -448,6 +451,7 @@ public class DoctorServiceImpl implements DoctorService {
         visit.setVisitDate(rearrangeRequest.newVisitDate());
         visitRepository.save(visit);
         evictDoctorCache(doctorId);
+        evictPatientCache(visit.getPatient().getId());
         notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
     }
 
