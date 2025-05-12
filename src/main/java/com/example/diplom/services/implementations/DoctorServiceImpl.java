@@ -294,26 +294,61 @@ public class DoctorServiceImpl implements DoctorService {
         return toVisitDetailsResponse(visit);
     }
 
+
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #patientId)")
     @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #patientId")
     public PatientMedCardResponse getPatientMedicalCard(UUID doctorId, UUID patientId) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found " + patientId));
+
         List<Visit> visits = visitRepository.findByPatientIdAndDoctorId(patientId, doctorId);
-        List<VisitDetailsResponse> details = visits.stream()
-                .map(this::toVisitDetailsResponse)
+        List<VisitDetailsResponse> visitDetails = visits.stream()
+                .map(visit -> {
+                    List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
+
+                    List<VisitServicesDetailsResponse> serviceResponses = vsList.stream()
+                            .map(vs -> new VisitServicesDetailsResponse(
+                                    vs.getServiceId(),
+                                    vs.getService().getName(),
+                                    vs.getService().getPrice(),
+                                    vs.getQuantity()
+                            ))
+                            .toList();
+
+                    List<String> attachmentUrls = visit.getAttachments().stream()
+                            .map(a -> {
+                                try {
+                                    return attachmentService.getPresignedUrlForAttachment(a.getId());
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .toList();
+
+                    return new VisitDetailsResponse(
+                            visit.getId(),
+                            visit.getVisitDate(),
+                            visit.isFinished(),
+                            visit.getNotes() != null ? visit.getNotes() : "",
+                            visit.getTotalCost(),
+                            serviceResponses,
+                            attachmentUrls
+                    );
+                })
                 .toList();
+
         return new PatientMedCardResponse(
                 patient.getId(),
                 patient.getFullName(),
                 patient.getBirthDate(),
                 patient.getEmail(),
                 patient.getPhone(),
-                details
+                visitDetails
         );
     }
-
 
     private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
         List<VisitService> existing = visitServiceRepository.findByVisit(visit);
