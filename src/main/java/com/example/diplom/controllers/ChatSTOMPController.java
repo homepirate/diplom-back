@@ -20,7 +20,7 @@ public class ChatSTOMPController {
     private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
-    private ChatNotificationService chatNotificationService;  // new injection
+    private ChatNotificationService chatNotificationService;
 
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage) {

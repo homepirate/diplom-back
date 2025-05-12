@@ -88,8 +88,8 @@ public class DataInitializer {
 
     private void populateSpecializations() {
         String[] specializations = {
-                "Стоматология", "Кардиология", "Дерматология",
-                "Офтальмология", "Терапия", "Педиатрия"
+                "Стоматолог", "Кардиолог", "Дерматолог",
+                "Офтальмолог", "Терапевт", "Педиатр"
         };
         for (String name : specializations) {
             Specialization specialization = new Specialization(name);
@@ -98,8 +98,6 @@ public class DataInitializer {
     }
 
     private void populateDoctors() {
-        List<String> графики = Arrays.asList("будни", "через_день");
-
         for (int i = 0; i < 10; i++) {
             Doctor doctor = new Doctor();
             doctor.setFullName(faker.name().lastName() + " " + faker.name().firstName());
@@ -122,7 +120,7 @@ public class DataInitializer {
             patient.setFullName(faker.name().lastName() + " " + faker.name().firstName());
             patient.setBirthDate(faker.date().birthday(18, 80)
                     .toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-            patient.setEmail(englishFaker.internet().emailAddress()); // только англ
+            patient.setEmail(englishFaker.internet().emailAddress());
             patient.setPhone("8" + faker.number().digits(10));
             patient.setPassword(passwordEncoder.encode("password"));
             patient.setRole("ROLE_PATIENT");
@@ -158,17 +156,17 @@ public class DataInitializer {
     }
 
     private void populateServices() {
-        Map<String, List<String>> услугиПоСпециализации = new HashMap<>();
-        услугиПоСпециализации.put("Стоматология", Arrays.asList("Удаление зуба", "Пломбирование", "Профессиональная чистка"));
-        услугиПоСпециализации.put("Кардиология", Arrays.asList("ЭКГ", "Консультация кардиолога", "Холтер"));
-        услугиПоСпециализации.put("Дерматология", Arrays.asList("Осмотр кожи", "Удаление родинок", "Лечение акне"));
-        услугиПоСпециализации.put("Офтальмология", Arrays.asList("Проверка зрения", "Подбор очков", "Фундоскопия"));
-        услугиПоСпециализации.put("Терапия", Arrays.asList("Общий приём", "Назначение анализов", "Лечение ОРВИ"));
-        услугиПоСпециализации.put("Педиатрия", Arrays.asList("Осмотр ребёнка", "Прививка", "Консультация родителей"));
+        Map<String, List<String>> specializationServices = new HashMap<>();
+        specializationServices.put("Стоматология", Arrays.asList("Удаление зуба", "Пломбирование", "Профессиональная чистка"));
+        specializationServices.put("Кардиология", Arrays.asList("ЭКГ", "Консультация кардиолога", "Холтер"));
+        specializationServices.put("Дерматология", Arrays.asList("Осмотр кожи", "Удаление родинок", "Лечение акне"));
+        specializationServices.put("Офтальмология", Arrays.asList("Проверка зрения", "Подбор очков", "Фундоскопия"));
+        specializationServices.put("Терапия", Arrays.asList("Общий приём", "Назначение анализов", "Лечение ОРВИ"));
+        specializationServices.put("Педиатрия", Arrays.asList("Осмотр ребёнка", "Прививка", "Консультация родителей"));
 
         for (Doctor doctor : doctorRepository.findAll()) {
             String spec = doctor.getSpecialization().getName();
-            List<String> услуги = услугиПоСпециализации.getOrDefault(spec, List.of("Консультация"));
+            List<String> услуги = specializationServices.getOrDefault(spec, List.of("Консультация"));
             for (String name : услуги) {
                 Service service = new Service();
                 service.setName(name);
@@ -187,7 +185,8 @@ public class DataInitializer {
                     .add(dp.getPatient());
         }
 
-        LocalDateTime startDate = LocalDateTime.now().minusMonths(4);
+        LocalDateTime startDate = LocalDateTime.now(
+        ).minusMonths(4);
         LocalDateTime endDate = LocalDateTime.now();
 
         List<Doctor> allDoctors = doctorRepository.findAll();
