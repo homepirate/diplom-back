@@ -14,7 +14,7 @@ public class CustomUserDetails implements UserDetails {
     private final String email;
     private final String password;
     private final String role;
-    private final String code; // add this field
+    private final String code;
     private final String fullName;
 
     public CustomUserDetails(UUID id, String email, String password, String role, String code, String fullName) {

@@ -1,7 +1,6 @@
 package com.example.diplom.services;
 
 import com.example.diplom.controllers.RR.*;
-import com.example.diplom.models.Patient;
 
 import java.util.List;
 import java.util.UUID;

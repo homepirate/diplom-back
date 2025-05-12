@@ -7,7 +7,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,9 +24,6 @@ public interface VisitRepository extends JpaRepository<Visit, UUID> {
     List<Visit> findByDoctorIdAndDate(UUID doctorId, String date);
 
     List<Visit> findByDoctorIdAndVisitDateBetween(UUID doctorId, LocalDateTime start, LocalDateTime end);
-
-
-
 
     Optional<Visit> findByIdAndPatientId(UUID visitId, UUID patientId);
 

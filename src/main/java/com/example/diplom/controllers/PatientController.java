@@ -5,7 +5,6 @@ import com.example.diplom.controllers.interfaces.PatientAPI;
 import com.example.diplom.exceptions.AlreadyLinkedException;
 import com.example.diplom.exceptions.ResourceNotFoundException;
 import com.example.diplom.exceptions.StatusResponse;
-import com.example.diplom.models.Patient;
 import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.PatientService;
 import com.example.diplom.services.dtos.AttachmentDto;

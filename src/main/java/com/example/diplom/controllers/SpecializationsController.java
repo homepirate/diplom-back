@@ -1,6 +1,5 @@
 package com.example.diplom.controllers;
 
-import com.example.diplom.models.Specialization;
 import com.example.diplom.repositories.SpecializationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

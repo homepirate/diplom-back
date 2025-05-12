@@ -119,9 +119,6 @@ public class DoctorServiceImpl implements DoctorService {
         }
     }
 
-    // -------------------------------------------------
-    // No special ownership check for registering a new doctor
-    // -------------------------------------------------
     @Override
     public void registerDoctor(DoctorRegisterRequest doctor) {
         Specialization specialization = specializationRepository
@@ -135,20 +132,12 @@ public class DoctorServiceImpl implements DoctorService {
         doctorDto.setPassword(passwordEncoder.encode(doctorDto.getPassword()));
         doctorDto.setRole("ROLE_DOCTOR");
 
-        // Generate the unique code
         String uniqueCode = String.valueOf(new Random().nextInt(8999999) + 1000000);
         doctorDto.setUniqueCode(uniqueCode);
 
         doctorRepository.save(modelMapper.map(doctorDto, Doctor.class));
     }
 
-    // -------------------------------------------------
-    // GET VISITS BY MONTH, BY DAY
-    // -------------------------------------------------
-
-    /**
-     * The only requirement is that the #doctorId matches the JWT's doctorId.
-     */
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #month + ':' + #year")
@@ -185,16 +174,12 @@ public class DoctorServiceImpl implements DoctorService {
                 .toList();
     }
 
-    // -------------------------------------------------
-    // CREATE SERVICE
-    // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public void createServiceForDoctor(UUID doctorId, CreateServiceRequest serviceRequest) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
-        // check if name exists
         Optional<com.example.diplom.models.Service> existing = serviceRepository.findByDoctorIdAndName(doctorId, serviceRequest.name());
         if (existing.isPresent()) {
             throw new IllegalArgumentException("Service with that name already exists.");
@@ -210,14 +195,10 @@ public class DoctorServiceImpl implements DoctorService {
 
     }
 
-    // -------------------------------------------------
-    // GET DOCTOR SERVICES
-    // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     @Cacheable(key = "#doctorId + ':' + #root.methodName")
     public List<ServiceResponse> getDoctorServices(UUID doctorId) {
-        // Just ensures the doc from JWT == #doctorId
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
 
@@ -227,9 +208,6 @@ public class DoctorServiceImpl implements DoctorService {
                 .toList();
     }
 
-    // -------------------------------------------------
-    // UPDATE SERVICE PRICE
-    // -------------------------------------------------
     @Override
     @PreAuthorize(
             "@doctorAuthz.hasDoctorServiceOwnership(authentication, #doctorId, #updateServiceRequest.name())"
@@ -249,9 +227,6 @@ public class DoctorServiceImpl implements DoctorService {
 
     }
 
-    // -------------------------------------------------
-    // GET DOCTOR PATIENTS
-    // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     @Cacheable(key = "#doctorId + ':' + #root.methodName")
@@ -268,21 +243,6 @@ public class DoctorServiceImpl implements DoctorService {
                 .toList();
     }
 
-    // -------------------------------------------------
-    // CREATE VISIT
-    // -------------------------------------------------
-
-    // -------------------------------------------------
-    // CANCEL VISIT
-    // -------------------------------------------------
-
-    /**
-     * Notice that your cancelVisit method doesn't currently accept the doctorId
-     * as a parameter. So either add it or you can do a custom PreAuthorize check
-     * that extracts the docId from the JWT inside doctorAuthz.
-     * <p>
-     * We'll add the parameter for consistency:
-     */
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
     public void cancelVisit(UUID doctorId, VisitIdRequest visitIdRequest) {
         if (!visitRepository.existsById(visitIdRequest.id())) {
@@ -295,17 +255,10 @@ public class DoctorServiceImpl implements DoctorService {
         evictPatientCache(visit.getPatient().getId());
     }
 
-    // -------------------------------------------------
-    // FINISH VISIT
-    // -------------------------------------------------
+
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #finishVisitRequest.id())")
     public void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest) {
-        // We must also change signature to pass doctorId:
-        // public void finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest) {...}
-        //
-        // For brevity, let's assume your method is now:
-        //    finishVisit(UUID doctorId, FinishVisitRequest finishVisitRequest)
 
         Visit visit = visitRepository.findById(finishVisitRequest.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found"));
@@ -332,9 +285,6 @@ public class DoctorServiceImpl implements DoctorService {
 
     }
 
-    // -------------------------------------------------
-    // GET FINISH VISIT DATA
-    // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #visitIdRequest.id())")
     @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #visitIdRequest.id()")
@@ -344,9 +294,6 @@ public class DoctorServiceImpl implements DoctorService {
         return toVisitDetailsResponse(visit);
     }
 
-    // -------------------------------------------------
-    // GET PATIENT MEDICAL CARD
-    // -------------------------------------------------
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #patientId)")
     @Cacheable(key = "#doctorId + ':' + #root.methodName + ':' + #patientId")
@@ -367,9 +314,7 @@ public class DoctorServiceImpl implements DoctorService {
         );
     }
 
-    // -------------------------------------------------
-    // HELPER to handle updates of visit-services
-    // -------------------------------------------------
+
     private void updateVisitServices(Visit visit, List<ServiceUpdateRequest> serviceUpdates) {
         List<VisitService> existing = visitServiceRepository.findByVisit(visit);
         Map<String, VisitService> existingMap = existing.stream()
@@ -402,7 +347,6 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorPatientOwnership(authentication, #doctorId, #visitRequest.patientId())")
     public CreateVisitResponse createVisit(UUID doctorId, CreateVisitRequest visitRequest) {
-        // Check for overlapping appointments
         AppointmentCheckResult result = checkAppointmentOverlap(doctorId, visitRequest.visitDate(), null);
         if (result == AppointmentCheckResult.ERROR) {
             throw new IllegalArgumentException("Записи пересекаются");
@@ -410,7 +354,6 @@ public class DoctorServiceImpl implements DoctorService {
             throw new AppointmentWarningException("There is another appointment close to this time. Is everything right?");
         }
 
-        // ... existing logic to create visit
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found " + doctorId));
         Patient patient = patientRepository.findById(visitRequest.patientId())
@@ -437,7 +380,6 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.hasDoctorVisitOwnership(authentication, #doctorId, #rearrangeRequest.visitId())")
     public void rearrangeVisit(UUID doctorId, RearrangeVisitRequest rearrangeRequest) {
-        // Check for overlapping appointments (exclude the visit being rearranged)
         AppointmentCheckResult result = checkAppointmentOverlap(doctorId, rearrangeRequest.newVisitDate(), rearrangeRequest.visitId());
         if (result == AppointmentCheckResult.ERROR) {
             throw new IllegalArgumentException("Appointments overlap");
@@ -455,14 +397,12 @@ public class DoctorServiceImpl implements DoctorService {
         notificationService.sendVisitCreatedNotification(visit.getPatient().getEmail(), visit.getVisitDate().toString());
     }
 
-    // Helper method to check for overlapping appointments
     private AppointmentCheckResult checkAppointmentOverlap(UUID doctorId, LocalDateTime newTime, UUID existingVisitId) {
         LocalDateTime windowStart = newTime.minusMinutes(15);
         LocalDateTime windowEnd = newTime.plusMinutes(15);
 
         List<Visit> nearbyVisits = visitRepository.findByDoctorIdAndVisitDateBetween(doctorId, windowStart, windowEnd);
         for (Visit visit : nearbyVisits) {
-            // When rearranging, ignore the current visit
             if (existingVisitId != null && visit.getId().equals(existingVisitId)) {
                 continue;
             }
@@ -731,30 +671,22 @@ public class DoctorServiceImpl implements DoctorService {
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public PatientResponse addPatientManually(UUID doctorId, AddPatientRequest addPatientRequest) {
-        // Create a new temporary patient
         Patient patient = new Patient();
         patient.setFullName(addPatientRequest.fullName());
         patient.setPhone(addPatientRequest.phone());
         patient.setBirthDate(addPatientRequest.birthDate());
-
-        patient.setIsTemporary(true);  // mark as temporary
-
-
-        // Save the patient
+        patient.setIsTemporary(true);
         Patient savedPatient = patientRepository.save(patient);
 
-        // Fetch the doctor (throw exception if not found)
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
 
-        // Create the doctor-patient association
         DoctorPatient dp = new DoctorPatient();
         dp.setDoctor(doctor);
         dp.setPatient(savedPatient);
         doctorPatientRepository.save(dp);
         evictDoctorCache(doctorId);
 
-        // Return response DTO
         return new PatientResponse(savedPatient.getFullName(), savedPatient.getBirthDate(), savedPatient.getId());
     }
 
@@ -788,13 +720,10 @@ public class DoctorServiceImpl implements DoctorService {
                     try {
                         return attachmentService.getPresignedUrlForAttachment(a.getId());
                     } catch (Exception e) {
-                        // логируем и пропускаем неуспешные
                         return null;
                     }
                 })
                 .filter(Objects::nonNull)
                 .toList();
     }
-
-
 }

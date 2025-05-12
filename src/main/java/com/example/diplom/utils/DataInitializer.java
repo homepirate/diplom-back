@@ -7,25 +7,25 @@ import com.example.diplom.services.AttachmentService;
 import com.example.diplom.services.ChatService;
 import com.github.javafaker.Faker;
 import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
-import org.springframework.mock.web.MockMultipartFile;
-
-import javax.annotation.PostConstruct;
-import java.io.ByteArrayInputStream;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.*;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Component
 public class DataInitializer {
@@ -40,10 +40,10 @@ public class DataInitializer {
     private final SpecializationRepository specializationRepository;
     private final MinioClient minioClient;
     private final AttachmentService attachmentService;
-    private final ChatService chatService;        // 1. Зависимость на ChatService
-
-
+    private final ChatService chatService;
     private final Faker faker;
+    private final Faker englishFaker;
+
     private final PasswordEncoder passwordEncoder;
 
     @Value("${minio.bucket.name}")
@@ -69,11 +69,13 @@ public class DataInitializer {
         this.minioClient = minioClient;
         this.attachmentService = attachmentService;
         this.chatService = chatService;
-        this.faker = new Faker();
+        this.faker = new Faker(new Locale("ru"));
+        this.englishFaker = new Faker(Locale.ENGLISH);
     }
 
     @PostConstruct
     public void init() {
+        populateSpecializations();
         populateDoctors();
         populatePatients();
         populateDoctorPatientLinks();
@@ -85,7 +87,10 @@ public class DataInitializer {
     }
 
     private void populateSpecializations() {
-        String[] specializations = {"Cardiology", "Neurology", "Orthopedics", "Dermatology", "Pediatrics"};
+        String[] specializations = {
+                "Стоматология", "Кардиология", "Дерматология",
+                "Офтальмология", "Терапия", "Педиатрия"
+        };
         for (String name : specializations) {
             Specialization specialization = new Specialization(name);
             specializationRepository.save(specialization);
@@ -93,22 +98,19 @@ public class DataInitializer {
     }
 
     private void populateDoctors() {
-        populateSpecializations();
+        List<String> графики = Arrays.asList("будни", "через_день");
+
         for (int i = 0; i < 10; i++) {
             Doctor doctor = new Doctor();
-            doctor.setFullName(faker.name().fullName());
-            doctor.setEmail(faker.internet().emailAddress());
+            doctor.setFullName(faker.name().lastName() + " " + faker.name().firstName());
+            doctor.setEmail(englishFaker.internet().emailAddress());
             doctor.setPhone("8" + faker.number().digits(10));
             doctor.setPassword(passwordEncoder.encode("password"));
             doctor.setRole("ROLE_DOCTOR");
             doctor.setUniqueCode(faker.number().digits(7));
 
-            Specialization specialization = specializationRepository.findAll()
-                    .stream()
-                    .skip(faker.number().numberBetween(0, (int) specializationRepository.count()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No specializations found"));
-            doctor.setSpecialization(specialization);
+            List<Specialization> allSpecs = specializationRepository.findAll();
+            doctor.setSpecialization(allSpecs.get(i % allSpecs.size()));
 
             doctorRepository.save(doctor);
         }
@@ -117,10 +119,10 @@ public class DataInitializer {
     private void populatePatients() {
         for (int i = 0; i < 100; i++) {
             Patient patient = new Patient();
-            patient.setFullName(faker.name().fullName());
+            patient.setFullName(faker.name().lastName() + " " + faker.name().firstName());
             patient.setBirthDate(faker.date().birthday(18, 80)
                     .toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-            patient.setEmail(faker.internet().emailAddress());
+            patient.setEmail(englishFaker.internet().emailAddress()); // только англ
             patient.setPhone("8" + faker.number().digits(10));
             patient.setPassword(passwordEncoder.encode("password"));
             patient.setRole("ROLE_PATIENT");
@@ -135,10 +137,9 @@ public class DataInitializer {
         Random random = new Random();
         Set<UUID> connectedPatientIds = new HashSet<>();
 
-        // For each doctor, assign a random subset of patients (at least one)
         for (Doctor doctor : doctors) {
             Collections.shuffle(patients, random);
-            int numberOfConnections = random.nextInt(patients.size()) + 1; // at least one connection
+            int numberOfConnections = random.nextInt(patients.size()) + 1;
             for (int i = 0; i < numberOfConnections; i++) {
                 Patient patient = patients.get(i);
                 DoctorPatient doctorPatient = new DoctorPatient(doctor, patient);
@@ -147,7 +148,6 @@ public class DataInitializer {
             }
         }
 
-        // Ensure every patient is connected to at least one doctor
         for (Patient patient : patients) {
             if (!connectedPatientIds.contains(patient.getId())) {
                 Doctor randomDoctor = doctors.get(random.nextInt(doctors.size()));
@@ -158,96 +158,123 @@ public class DataInitializer {
     }
 
     private void populateServices() {
-        Set<Doctor> doctors = new HashSet<>(doctorRepository.findAll());
-        for (Doctor doctor : doctors) {
-            Set<String> existingServiceNames = new HashSet<>();
-            for (int i = 0; i < 3; i++) {
-                String serviceName;
-                do {
-                    serviceName = faker.company().buzzword();
-                } while (existingServiceNames.contains(serviceName) ||
-                        serviceRepository.findByDoctorIdAndName(doctor.getId(), serviceName).isPresent());
-                existingServiceNames.add(serviceName);
+        Map<String, List<String>> услугиПоСпециализации = new HashMap<>();
+        услугиПоСпециализации.put("Стоматология", Arrays.asList("Удаление зуба", "Пломбирование", "Профессиональная чистка"));
+        услугиПоСпециализации.put("Кардиология", Arrays.asList("ЭКГ", "Консультация кардиолога", "Холтер"));
+        услугиПоСпециализации.put("Дерматология", Arrays.asList("Осмотр кожи", "Удаление родинок", "Лечение акне"));
+        услугиПоСпециализации.put("Офтальмология", Arrays.asList("Проверка зрения", "Подбор очков", "Фундоскопия"));
+        услугиПоСпециализации.put("Терапия", Arrays.asList("Общий приём", "Назначение анализов", "Лечение ОРВИ"));
+        услугиПоСпециализации.put("Педиатрия", Arrays.asList("Осмотр ребёнка", "Прививка", "Консультация родителей"));
 
+        for (Doctor doctor : doctorRepository.findAll()) {
+            String spec = doctor.getSpecialization().getName();
+            List<String> услуги = услугиПоСпециализации.getOrDefault(spec, List.of("Консультация"));
+            for (String name : услуги) {
                 Service service = new Service();
-                service.setName(serviceName);
-                service.setPrice(BigDecimal.valueOf(faker.number().randomDouble(2, 50, 500)));
+                service.setName(name);
+                service.setPrice(BigDecimal.valueOf(faker.number().numberBetween(500, 5000)));
                 service.setDoctor(doctor);
-
                 serviceRepository.save(service);
             }
         }
     }
 
     private void populateVisits() {
-        // Build a map of linked patients for each doctor using the doctor's id as key.
-        List<DoctorPatient> allLinks = doctorPatientRepository.findAll();
         Map<UUID, List<Patient>> doctorPatientsMap = new HashMap<>();
-        for (DoctorPatient dp : allLinks) {
-            UUID doctorId = dp.getDoctor().getId();
-            doctorPatientsMap.computeIfAbsent(doctorId, k -> new ArrayList<>()).add(dp.getPatient());
+        for (DoctorPatient dp : doctorPatientRepository.findAll()) {
+            doctorPatientsMap
+                    .computeIfAbsent(dp.getDoctor().getId(), k -> new ArrayList<>())
+                    .add(dp.getPatient());
         }
-        List<Doctor> doctors = doctorRepository.findAll();
 
-        LocalDateTime startDate = LocalDateTime.now().minusMonths(1);
+        LocalDateTime startDate = LocalDateTime.now().minusMonths(4);
         LocalDateTime endDate = LocalDateTime.now();
 
-        for (Doctor doctor : doctors) {
-            List<Patient> linkedPatients = doctorPatientsMap.get(doctor.getId());
-            if (linkedPatients == null || linkedPatients.isEmpty()) {
-                continue;
-            }
-            LocalDateTime currentDate = startDate;
-            while (currentDate.isBefore(endDate)) {
-                for (int i = 0; i < 8; i++) {
-                    Visit visit = new Visit();
-                    Patient patient = linkedPatients.get(faker.number().numberBetween(0, linkedPatients.size()));
-                    visit.setDoctor(doctor);
-                    visit.setPatient(patient);
-                    visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(0, 12)));
-                    visit.setNotes(faker.lorem().sentence());
-                    boolean isFinished = faker.bool().bool();
-                    visit.setFinished(isFinished);
-                    visit.setTotalCost(BigDecimal.ZERO);
-                    visit = visitRepository.save(visit);
+        List<Doctor> allDoctors = doctorRepository.findAll();
 
-                    if (isFinished) {
-                        List<Service> doctorServices = serviceRepository.findByDoctorId(doctor.getId());
-                        if (!doctorServices.isEmpty()) {
-                            Map<Service, VisitService> visitServiceMap = new HashMap<>();
-                            BigDecimal totalCost = BigDecimal.ZERO;
-                            int numServices = faker.number().numberBetween(1, 4);
-                            for (int j = 0; j < numServices; j++) {
-                                Service service = doctorServices.get(faker.number().numberBetween(0, doctorServices.size()));
-                                Visit finalVisit = visit;
-                                visitServiceMap.compute(service, (s, vs) -> {
-                                    if (vs == null) {
-                                        vs = new VisitService();
-                                        vs.setVisit(finalVisit);
-                                        vs.setService(service);
-                                        vs.setQuantity(1);
-                                    } else {
-                                        vs.setQuantity(vs.getQuantity() + 1);
-                                    }
-                                    return vs;
-                                });
-                                totalCost = totalCost.add(service.getPrice());
-                            }
-                            visit.setTotalCost(totalCost);
-                            visitRepository.save(visit);
-                            for (VisitService vs : visitServiceMap.values()) {
-                                visitServiceRepository.save(vs);
+        for (int index = 0; index < allDoctors.size(); index++) {
+            Doctor doctor = allDoctors.get(index);
+            boolean worksEveryOtherDay = index % 2 == 0;
+
+            List<Patient> linkedPatients = doctorPatientsMap.getOrDefault(doctor.getId(), List.of());
+            LocalDateTime currentDate = startDate;
+
+            while (currentDate.isBefore(endDate)) {
+                boolean isWorkingDay;
+
+                if (worksEveryOtherDay) {
+                    isWorkingDay = (currentDate.toLocalDate().toEpochDay() - startDate.toLocalDate().toEpochDay()) % 2 == 0;
+                } else {
+                    DayOfWeek dayOfWeek = currentDate.getDayOfWeek();
+                    isWorkingDay = dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY;
+                }
+
+                if (isWorkingDay) {
+                    for (int i = 0; i < 2; i++) {
+                        if (linkedPatients.isEmpty()) continue;
+
+                        Patient patient = linkedPatients.get(faker.number().numberBetween(0, linkedPatients.size()));
+
+                        Visit visit = new Visit();
+                        visit.setDoctor(doctor);
+                        visit.setPatient(patient);
+                        visit.setVisitDate(currentDate.plusHours(faker.number().numberBetween(8, 18)));
+                        visit.setNotes(generateNotesBySpecialization(doctor.getSpecialization().getName()));
+                        visit.setFinished(faker.bool().bool());
+                        visit.setTotalCost(BigDecimal.ZERO);
+                        visit = visitRepository.save(visit);
+
+                        if (visit.isFinished()) {
+                            List<Service> doctorServices = serviceRepository.findByDoctorId(doctor.getId());
+                            if (!doctorServices.isEmpty()) {
+                                Map<Service, VisitService> visitServiceMap = new HashMap<>();
+                                BigDecimal totalCost = BigDecimal.ZERO;
+                                int numServices = faker.number().numberBetween(1, 4);
+                                for (int j = 0; j < numServices; j++) {
+                                    Service service = doctorServices.get(faker.number().numberBetween(0, doctorServices.size()));
+                                    Visit finalVisit = visit;
+                                    visitServiceMap.compute(service, (s, vs) -> {
+                                        if (vs == null) {
+                                            vs = new VisitService();
+                                            vs.setVisit(finalVisit);
+                                            vs.setService(service);
+                                            vs.setQuantity(1);
+                                        } else {
+                                            vs.setQuantity(vs.getQuantity() + 1);
+                                        }
+                                        return vs;
+                                    });
+                                    totalCost = totalCost.add(service.getPrice());
+                                }
+                                visit.setTotalCost(totalCost);
+                                visitRepository.save(visit);
+                                for (VisitService vs : visitServiceMap.values()) {
+                                    visitServiceRepository.save(vs);
+                                }
                             }
                         }
-                    } else {
-                        visitRepository.save(visit);
                     }
                 }
+
                 currentDate = currentDate.plusDays(1);
             }
         }
     }
-    public void populateAttachments() {
+
+
+    private String generateNotesBySpecialization(String specialization) {
+        return switch (specialization) {
+            case "Стоматология" -> "Жалобы на зубную боль, выполнено пломбирование.";
+            case "Кардиология" -> "Повышенное давление, рекомендована ЭКГ и холтер.";
+            case "Дерматология" -> "Высыпания на коже, начато лечение акне.";
+            case "Офтальмология" -> "Снижение зрения, рекомендованы очки.";
+            case "Терапия" -> "Обследование без отклонений, назначены анализы.";
+            case "Педиатрия" -> "Плановый осмотр ребёнка, сделана прививка.";
+            default -> "Консультация завершена.";
+        };
+    }
+
+    private void populateAttachments() {
         List<Visit> visits = visitRepository.findAll();
         int counter = 0;
 
@@ -260,24 +287,28 @@ public class DataInitializer {
                     String randomFileName;
                     String contentType;
 
-                    // Генерируем PDF или TXT
                     if (counter % 2 == 0) {
-                        // --- PDF ---
                         ByteArrayOutputStream pdfOs = new ByteArrayOutputStream();
                         try (PDDocument document = new PDDocument()) {
                             PDPage page = new PDPage();
                             document.addPage(page);
+
+                            //  1. Загрузка шрифта из ресурсов
+                            InputStream fontStream = getClass().getClassLoader().getResourceAsStream("ofont.ru_Futura PT.ttf");
+                            if (fontStream == null) throw new RuntimeException("Шрифт не найден в ресурсах");
+                            PDType0Font customFont = PDType0Font.load(document, fontStream);
+
                             try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
-                                cs.setFont(PDType1Font.HELVETICA_BOLD, 14);
+                                cs.setFont(customFont, 14);  // 2. Установка шрифта
                                 cs.beginText();
                                 cs.newLineAtOffset(100, 700);
-                                cs.showText("Medical Report for Visit: " + visit.getId());
+                                cs.showText("Медицинский отчёт о визите: " + visit.getId());
                                 cs.newLineAtOffset(0, -20);
-                                cs.showText("Doctor: " + visit.getDoctor().getFullName());
+                                cs.showText("Врач: " + visit.getDoctor().getFullName());
                                 cs.newLineAtOffset(0, -20);
-                                cs.showText("Patient: " + visit.getPatient().getFullName());
+                                cs.showText("Пациент: " + visit.getPatient().getFullName());
                                 cs.newLineAtOffset(0, -20);
-                                cs.showText("Notes: " + visit.getNotes());
+                                cs.showText("Комментарий: " + visit.getNotes());
                                 cs.endText();
                             }
                             document.save(pdfOs);
@@ -285,39 +316,25 @@ public class DataInitializer {
                         fileContent = pdfOs.toByteArray();
                         randomFileName = UUID.randomUUID() + ".pdf";
                         contentType = "application/pdf";
-
                     } else {
-                        // --- TXT ---
                         String txt = faker.lorem().paragraph();
                         fileContent = txt.getBytes(StandardCharsets.UTF_8);
                         randomFileName = UUID.randomUUID() + ".txt";
                         contentType = "text/plain";
                     }
 
-                    // Оборачиваем в MultipartFile
                     MockMultipartFile multipartFile = new MockMultipartFile(
-                            "file",                  // поле формы
-                            randomFileName,          // исходное имя файла
-                            contentType,             // MIME
-                            fileContent              // данные
+                            "file", randomFileName, contentType, fileContent
                     );
 
-                    // Формируем запрос и вызываем сервис
                     AddAttachmentRequest req = new AddAttachmentRequest(
-                            visit.getId(),
-                            multipartFile,
-                            faker.lorem().sentence()
+                            visit.getId(), multipartFile, faker.lorem().sentence()
                     );
 
-                    attachmentService.addAttachment(
-                            visit.getPatient().getId(),
-                            req
-                    );
-
+                    attachmentService.addAttachment(visit.getPatient().getId(), req);
                     counter++;
 
                 } catch (Exception e) {
-                    // Логируем, но не останавливаемся на ошибке одного файла
                     e.printStackTrace();
                 }
             }
@@ -354,31 +371,26 @@ public class DataInitializer {
         }
     }
 
-
     private void populateChatMessages() {
-        // Получаем все связи «врач–пациент»
         List<DoctorPatient> links = doctorPatientRepository.findAll();
 
         for (DoctorPatient dp : links) {
-            String doctorId  = dp.getDoctor().getId().toString();
+            String doctorId = dp.getDoctor().getId().toString();
             String patientId = dp.getPatient().getId().toString();
 
-            // Случайное количество сообщений в одну сторону
             int count = faker.number().numberBetween(1, 5);
             for (int i = 0; i < count; i++) {
-                // Врач → Пациент
                 ChatMessage msgFromDoctor = new ChatMessage();
                 msgFromDoctor.setSenderId(doctorId);
                 msgFromDoctor.setReceiverId(patientId);
-                msgFromDoctor.setContent(faker.lorem().sentence());
+                msgFromDoctor.setContent("Здравствуйте!");
                 msgFromDoctor.setType(ChatMessage.MessageType.CHAT);
                 chatService.sendMessage(msgFromDoctor);
 
-                // Пациент → Врач
                 ChatMessage msgFromPatient = new ChatMessage();
                 msgFromPatient.setSenderId(patientId);
                 msgFromPatient.setReceiverId(doctorId);
-                msgFromPatient.setContent(faker.lorem().sentence());
+                msgFromPatient.setContent("Спасибо, доктор! ");
                 msgFromPatient.setType(ChatMessage.MessageType.CHAT);
                 chatService.sendMessage(msgFromPatient);
             }

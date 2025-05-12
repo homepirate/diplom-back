@@ -27,8 +27,6 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
             throws IOException, ServletException {
 
         StatusResponse status = new StatusResponse("FORBIDDEN", "У вас нет прав для доступа к этому ресурсу.");
-
-        // Для отладки можно добавить деталь:
         String detailMessage = accessDeniedException.getMessage();
         if (detailMessage != null) {
             status.setMessage(status.getMessage() + " Детали: " + detailMessage);

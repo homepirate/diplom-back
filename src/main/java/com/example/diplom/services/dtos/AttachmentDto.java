@@ -8,7 +8,6 @@ public class AttachmentDto {
     private String filePath;
     private String description;
 
-
     public AttachmentDto(UUID id, UUID visitId, String filePath, String description) {
         Id = id;
         this.visitId = visitId;

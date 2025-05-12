@@ -21,9 +21,6 @@ import java.time.Duration;
 @Configuration
 public class RedisConfig {
 
-    /**
-     * ObjectMapper for Redis with default typing for type metadata
-     */
     private ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new ParameterNamesModule())

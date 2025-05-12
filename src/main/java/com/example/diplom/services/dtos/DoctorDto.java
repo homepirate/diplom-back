@@ -4,11 +4,9 @@ import com.example.diplom.models.Specialization;
 
 public class DoctorDto {
 
-
     private String fullName;
     private Specialization specialization;
     private String uniqueCode;
-
 
     public DoctorDto(String fullName, Specialization specialization, String uniqueCode) {
         this.fullName = fullName;
@@ -18,7 +16,6 @@ public class DoctorDto {
 
     public DoctorDto() {
     }
-
 
     public String getFullName() {
         return fullName;

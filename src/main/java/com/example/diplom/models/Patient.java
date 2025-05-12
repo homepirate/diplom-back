@@ -1,7 +1,6 @@
 package com.example.diplom.models;
 
 import jakarta.persistence.*;
-import org.springframework.context.annotation.Role;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -10,7 +9,6 @@ import java.util.Set;
 @Entity
 @Table(name = "patients")
 public class Patient extends User {
-
 
     private String fullName;
     private LocalDate birthDate;

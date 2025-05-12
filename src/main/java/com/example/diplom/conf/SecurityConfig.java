@@ -40,12 +40,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable()) // CSRF must be disabled for WebSockets
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**", "/register/**", "/api/specializations", "/swagger-ui/**").permitAll()
                         .requestMatchers("/api/doctors/**").hasRole("DOCTOR")
                         .requestMatchers("/api/patients/**").hasAnyRole("PATIENT", "DOCTOR")
-                        .requestMatchers("/ws-chat/**").permitAll() // Allow WebSocket connections
+                        .requestMatchers("/ws-chat/**").permitAll()
                         .requestMatchers("/ws-notifications/**").permitAll()
                         .anyRequest().authenticated()
                 )

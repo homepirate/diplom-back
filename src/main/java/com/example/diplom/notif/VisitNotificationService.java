@@ -20,16 +20,10 @@ public class VisitNotificationService {
     @Autowired
     private VisitRepository visitRepository;
 
-    // WebSocket messaging for real‑time UI updates:
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
-
-    // Formatter for the visit date (customize as needed)
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-
-    // Helper method to send a data‑only FCM message to a topic
     private void sendFcmNotificationTopic(String topic, String title, String body) {
-        // Create a message with only data payload (no notification payload)
         Message message = Message.builder()
                 .setTopic(topic)
                 .putData("title", title)
@@ -47,13 +41,10 @@ public class VisitNotificationService {
         }
     }
 
-    // Scheduled method runs every minute to check for upcoming visits
     @Scheduled(fixedRate = 60000)
     public void sendNotifications() {
         System.out.println("Запуск отправки уведомлений: " + LocalDateTime.now());
         LocalDateTime now = LocalDateTime.now();
-
-        // Notifications for Doctors (1 hour before visit)
         LocalDateTime doctorNotificationTime = now.plusHours(1);
         List<Visit> doctorVisits = visitRepository.findVisitsByVisitDateBetween(
                 doctorNotificationTime.minusSeconds(30),
@@ -62,7 +53,6 @@ public class VisitNotificationService {
         System.out.println("Found " + doctorVisits.size() + " doctor visits.");
         for (Visit visit : doctorVisits) {
             String formattedDate = visit.getVisitDate().format(formatter);
-            // Create message text that includes the patient's name
             String messageText = "Визит: " +
                     visit.getPatient().getFullName() + " на " + formattedDate;
             String topic = "doctor_" + visit.getDoctor().getId();
@@ -71,7 +61,6 @@ public class VisitNotificationService {
             messagingTemplate.convertAndSend("/topic/doctor/" + visit.getDoctor().getId(), messageText);
         }
 
-        // Notifications for Patients (1 day before visit)
         LocalDateTime patientNotificationTimeDay = now.plusDays(1);
         List<Visit> patientVisitsDay = visitRepository.findVisitsByVisitDateBetween(
                 patientNotificationTimeDay.minusSeconds(30),
@@ -86,7 +75,6 @@ public class VisitNotificationService {
             messagingTemplate.convertAndSend("/topic/patient/" + visit.getPatient().getId(), messageText);
         }
 
-        // Notifications for Patients (1 hour before visit)
         LocalDateTime patientNotificationTimeHour = now.plusHours(1);
         List<Visit> patientVisitsHour = visitRepository.findVisitsByVisitDateBetween(
                 patientNotificationTimeHour.minusSeconds(30),

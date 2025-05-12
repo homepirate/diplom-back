@@ -1,8 +1,5 @@
 package com.example.diplom.services.dtos;
 
-import com.example.diplom.models.Service;
-import com.example.diplom.models.Visit;
-
 import java.util.UUID;
 
 public class VisitServiceDto {

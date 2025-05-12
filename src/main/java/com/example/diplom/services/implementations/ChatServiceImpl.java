@@ -9,7 +9,6 @@ import com.example.diplom.repositories.DoctorRepository;
 import com.example.diplom.repositories.PatientRepository;
 import com.example.diplom.services.ChatService;
 import com.example.diplom.services.dtos.ChatPreview;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.encrypt.Encryptors;
@@ -45,11 +44,8 @@ public class ChatServiceImpl implements ChatService {
         messageEntity.setReceiverId(chatMessage.getReceiverId());
         String encryptedContent = textEncryptor.encrypt(chatMessage.getContent());
         messageEntity.setContent(encryptedContent);
-        // Set the timestamp on the entity
         messageEntity.setTimestamp(LocalDateTime.now().toString());
         chatMessageRepository.save(messageEntity);
-
-        // **Update the ChatMessage object with the timestamp from the entity**
         chatMessage.setTimestamp(messageEntity.getTimestamp());
         System.out.println("Add new message" + chatMessage);
 
@@ -58,10 +54,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<ChatMessage> getChatHistory(String user1, String user2) {
-        // ✅ Fetch messages using the custom sorted query (no need for two separate queries)
         List<ChatMessageEntity> allMessages = chatMessageRepository.findBySenderIdAndReceiverId(user1, user2);
-
-        // Convert entity list to DTO list
         List<ChatMessage> history = new ArrayList<>();
         for (ChatMessageEntity entity : allMessages) {
             ChatMessage message = new ChatMessage();
@@ -77,7 +70,6 @@ public class ChatServiceImpl implements ChatService {
     }
     @Override
     public void deleteAllMessagesForUser(String userId) {
-        // This method deletes all messages in which the user participates.
         chatMessageRepository.deleteBySenderIdOrReceiverId(userId, userId);
     }
 

@@ -14,7 +14,7 @@ public class VisitService {
     private UUID serviceId;
     private Visit visit;
     private Service service;
-    private int quantity; // New field for quantity
+    private int quantity;
 
     public VisitService() {
     }
@@ -73,7 +73,6 @@ public class VisitService {
         }
     }
 
-    // Getter and setter for the new quantity field
     public int getQuantity() {
         return quantity;
     }

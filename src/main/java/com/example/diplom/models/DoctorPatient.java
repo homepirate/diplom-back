@@ -10,7 +10,6 @@ import java.util.UUID;
 @IdClass(DoctorPatientPK.class)
 public class DoctorPatient {
 
-
     private UUID doctorId;
     private UUID patientId;
     private Doctor doctor;
@@ -26,7 +25,6 @@ public class DoctorPatient {
         this.doctorId = doctor.getId();
         this.patientId = patient.getId();
     }
-
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", insertable = false, updatable = false)

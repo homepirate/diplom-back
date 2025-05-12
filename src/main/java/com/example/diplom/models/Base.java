@@ -13,9 +13,7 @@ public class Base{
 
     protected UUID id;
     protected LocalDateTime created;
-
     protected LocalDateTime modified;
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -36,7 +34,6 @@ public class Base{
     public void setCreated(LocalDateTime created) {
         this.created = created;
     }
-
 
     @UpdateTimestamp
     @Column(name="modified", nullable = false)

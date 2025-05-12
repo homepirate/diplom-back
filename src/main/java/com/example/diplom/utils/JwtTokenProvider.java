@@ -1,11 +1,9 @@
 package com.example.diplom.utils;
 
-import com.example.diplom.models.Doctor;
-import com.example.diplom.repositories.DoctorRepository;
+
 import com.example.diplom.services.dtos.CustomUserDetails;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -41,14 +39,12 @@ public class JwtTokenProvider {
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256);
 
-        // If the user is a doctor, add the code claim
         if (authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             if (userDetails.getCode() != null) {
                 jwtBuilder.claim("code", userDetails.getCode()).claim("fullName", userDetails.getFullName());
             }
         }
-
         return jwtBuilder.compact();
     }
 }

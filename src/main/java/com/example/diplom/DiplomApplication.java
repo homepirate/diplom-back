@@ -11,9 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableCaching
 public class DiplomApplication {
-
-	public static void main(String[] args) {
-		SpringApplication.run(DiplomApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(DiplomApplication.class, args);
+    }
 }

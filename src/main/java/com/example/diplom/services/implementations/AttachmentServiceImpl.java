@@ -34,7 +34,6 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final MinioClient minioClient;
     private final RedisTemplate<String, Object> redisTemplate;
 
-
     @Value("${minio.bucket.name}")
     private String bucketName;
 
@@ -62,7 +61,6 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     public AttachmentDto addAttachment(UUID patientId, AddAttachmentRequest request) throws IOException {
-        // Verify that the visit exists and belongs to the patient
         Visit visit = visitRepository.findByIdAndPatientId(request.visitId(), patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Visit not found for the given patient"));
 
@@ -75,20 +73,17 @@ public class AttachmentServiceImpl implements AttachmentService {
             throw new RuntimeException("Error storing file", e);
         }
 
-        // Create a new attachment
         Attachment attachment = new Attachment();
         attachment.setVisit(visit);
         attachment.setFilePath(fileName);
         attachment.setDescription(request.description());
 
-        // Save the new attachment
         Attachment savedAttachment = attachmentRepository.save(attachment);
 
-        // Ensure the visit correctly tracks multiple attachments
         Set<Attachment> visitAttachments = visit.getAttachments();
         visitAttachments.add(savedAttachment);
         visit.setAttachments(visitAttachments);
-        visitRepository.save(visit); // Update visit with the new attachment
+        visitRepository.save(visit);
 
         return new AttachmentDto(savedAttachment.getId(),
                 savedAttachment.getVisit().getId(),
@@ -104,18 +99,14 @@ public class AttachmentServiceImpl implements AttachmentService {
 
         String fileName = UUID.randomUUID() + "_" + originalFileName;
 
-        // Шифрование при загрузке
         ObjectWriteResponse response = minioClient.putObject(
                 PutObjectArgs.builder()
                         .bucket(bucketName)
                         .object(fileName)
                         .stream(file.getInputStream(), file.getSize(), -1)
                         .contentType(file.getContentType())
-                        //.sse(new ServerSideEncryptionS3()) // #НЕРАБО
                         .build()
         );
-
-
         return fileName;
     }
 
@@ -128,31 +119,28 @@ public class AttachmentServiceImpl implements AttachmentService {
                         .method(Method.GET)
                         .bucket(bucketName)
                         .object(attachment.getFilePath())
-                        .expiry(2, TimeUnit.HOURS) // URL valid for 2 hours
+                        .expiry(2, TimeUnit.HOURS)
                         .build()
         );
     }
+
     @Override
     public void deleteAttachmentByUrl(UUID patientId, String url) throws Exception {
-        // Parse the URL to extract the file key
         URI uri = new URI(url);
-        String path = uri.getPath(); // expected format: /bucketName/fileName
+        String path = uri.getPath();
         String expectedPrefix = "/" + bucketName + "/";
         if (!path.startsWith(expectedPrefix)) {
             throw new IllegalArgumentException("Неверный формат URL");
         }
         String fileKey = path.substring(expectedPrefix.length());
 
-        // Find the attachment record by its file path (fileKey)
         Attachment attachment = attachmentRepository.findByFilePath(fileKey)
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
 
-        // Verify that the attachment belongs to the patient
         if (!attachment.getVisit().getPatient().getId().equals(patientId)) {
             throw new org.springframework.security.access.AccessDeniedException("Patient not allowed to delete this attachment");
         }
 
-        // Remove the file from MinIO
         minioClient.removeObject(
                 io.minio.RemoveObjectArgs.builder()
                         .bucket(bucketName)
@@ -160,21 +148,17 @@ public class AttachmentServiceImpl implements AttachmentService {
                         .build()
         );
 
-        // Remove the attachment from the visit and delete it from the repository
         attachment.getVisit().getAttachments().remove(attachment);
         attachmentRepository.delete(attachment);
     }
+
     @Transactional
     @Override
     public void deleteAttachmentById(UUID attachmentId) throws Exception {
-        // Retrieve the attachment by its id
         Attachment attachment = attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found with id: " + attachmentId));
 
-        // Get the file key (file path) stored in MinIO
         String fileKey = attachment.getFilePath();
-
-        // Remove the file from MinIO storage
         minioClient.removeObject(
                 io.minio.RemoveObjectArgs.builder()
                         .bucket(bucketName)
@@ -182,37 +166,24 @@ public class AttachmentServiceImpl implements AttachmentService {
                         .build()
         );
 
-        // Remove attachment reference from its visit
         if (attachment.getVisit() != null && attachment.getVisit().getAttachments() != null) {
             attachment.getVisit().getAttachments().remove(attachment);
         }
-
-        // Delete the attachment record from the repository
         attachmentRepository.delete(attachment);
     }
 
-
     @Override
     public void deleteAllAttachmentsByPatientId(UUID patientId) throws Exception {
-        // Retrieve all visits for the patient.
-        // (Assumes that VisitRepository has a method "findByPatientId")
         List<Visit> visits = visitRepository.findByPatientId(patientId);
-
-        // Loop through each visit.
         for (Visit visit : visits) {
-            // Create a defensive copy of attachments to avoid concurrent modification.
             Set<Attachment> attachmentsCopy = Set.copyOf(visit.getAttachments());
             for (Attachment attachment : attachmentsCopy) {
                 try {
-                    // Delete the attachment by calling the existing method that deletes by attachment ID.
                     deleteAttachmentById(attachment.getId());
                 } catch (Exception e) {
-                    // Log error (or handle it as needed) and continue with the next attachment.
                     e.printStackTrace();
                 }
             }
         }
     }
-
-
 }

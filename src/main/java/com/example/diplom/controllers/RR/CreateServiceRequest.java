@@ -6,9 +6,8 @@ import jakarta.validation.constraints.NotEmpty;
 import java.math.BigDecimal;
 
 public record CreateServiceRequest(
-
         @NotBlank(message = "Название не пустое")
         String name,
         BigDecimal price
-){
+) {
 }

@@ -1,7 +1,7 @@
 package com.example.diplom.services.dtos;
 
 public class PatientDto {
-    private String fullName; // Ensure this field exists
+    private String fullName;
 
     public String getFullName() {
         return fullName;

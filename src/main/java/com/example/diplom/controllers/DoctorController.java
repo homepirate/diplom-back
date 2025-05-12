@@ -37,7 +37,6 @@ public class DoctorController implements DoctorAPI {
         return null;
     }
 
-
     @Override
     public List<VisitDateResponse> getDoctorVisitDates(int month, int year) {
         UUID doctorId = getDoctorId();

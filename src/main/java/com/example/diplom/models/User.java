@@ -7,12 +7,10 @@ import jakarta.persistence.*;
 @Inheritance(strategy = InheritanceType.JOINED)
 public abstract class User extends Base {
 
-
     private String password;
     private String role;
     private String email;
     private String phone;
-
 
     @Column(name = "password", nullable = true)
     public String getPassword() {

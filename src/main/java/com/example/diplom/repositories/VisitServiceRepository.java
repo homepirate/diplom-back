@@ -10,6 +10,5 @@ import java.util.List;
 
 @Repository
 public interface VisitServiceRepository extends JpaRepository<VisitService, VisitServicePK> {
-
     List<VisitService> findByVisit(Visit visit);
 }

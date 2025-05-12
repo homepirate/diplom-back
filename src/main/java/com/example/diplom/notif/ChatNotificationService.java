@@ -5,7 +5,6 @@ import com.example.diplom.models.Doctor;
 import com.example.diplom.models.Patient;
 import com.example.diplom.repositories.DoctorRepository;
 import com.example.diplom.repositories.PatientRepository;
-import com.example.diplom.repositories.UserRepository;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;

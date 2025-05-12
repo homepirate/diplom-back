@@ -21,7 +21,6 @@ public class ModelMapperConfig {
                 .setCollectionsMergeEnabled(false)
                 .setAmbiguityIgnored(true);
 
-        // Конвертер из любой Collection<?> (включая PersistentSet) в ArrayList<?>
         mapper.addConverter(new Converter<Collection<?>, List<?>>() {
             @Override
             public List<?> convert(MappingContext<Collection<?>, List<?>> context) {
