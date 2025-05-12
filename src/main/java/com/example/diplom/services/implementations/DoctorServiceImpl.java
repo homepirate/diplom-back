@@ -692,12 +692,23 @@ public class DoctorServiceImpl implements DoctorService {
 
 
     private VisitDetailsResponse toVisitDetailsResponse(Visit visit) {
-        List<VisitServicesDetailsResponse> services = visitServiceRepository.findByVisit(visit).stream()
-                .map(vs -> new VisitServicesDetailsResponse(
-                        vs.getService().getId(),
-                        vs.getService().getName(),
-                        vs.getService().getPrice(),
-                        vs.getQuantity()))
+        UUID doctorId = visit.getDoctor().getId();
+        List<com.example.diplom.models.Service> docServices =
+                serviceRepository.findByDoctorId(doctorId);
+
+        Map<UUID, Integer> serviceQuantities = visitServiceRepository.findByVisit(visit).stream()
+                .collect(Collectors.toMap(
+                        vs -> vs.getService().getId(),
+                        VisitService::getQuantity
+                ));
+
+        List<VisitServicesDetailsResponse> services = docServices.stream()
+                .map(s -> new VisitServicesDetailsResponse(
+                        s.getId(),
+                        s.getName(),
+                        s.getPrice(),
+                        serviceQuantities.getOrDefault(s.getId(), 0)
+                ))
                 .toList();
 
         List<String> attachments = buildAttachmentUrls(visit.getAttachments());
