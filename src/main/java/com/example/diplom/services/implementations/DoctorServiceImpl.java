@@ -452,14 +452,7 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
 
-    /**
-     * Генерация финансового отчёта с дашбордом в формате PDF для указанного доктора за выбранный период.
-     * Отчёт включает сводные данные по визитам и график распределения выручки по услугам.
-     *
-     * @param doctorId  идентификатор доктора
-     * @param reportRequest период
-     * @return PDF отчёт в виде массива байтов
-     */
+
     @Override
     @PreAuthorize("@doctorAuthz.matchDoctorId(authentication, #doctorId)")
     public byte[] generateFinancialDashboardReport(UUID doctorId, ReportRequest reportRequest) {
@@ -470,7 +463,6 @@ public class DoctorServiceImpl implements DoctorService {
         LocalDateTime startOfDay = reportRequest.startDate().atStartOfDay();
         LocalDateTime endOfDay   = reportRequest.endDate().atTime(LocalTime.MAX);
 
-        // 1) Получаем визиты за период
         List<Visit> visits = visitRepository.findByDoctorIdAndVisitDateBetween(
                 doctorId,
                 startOfDay,
@@ -480,13 +472,11 @@ public class DoctorServiceImpl implements DoctorService {
             throw new ResourceNotFoundException("В указанный период визиты не найдены.");
         }
 
-        // Подсчитываем общую выручку и общее кол-во визитов
         BigDecimal totalRevenue = visits.stream()
                 .map(Visit::getTotalCost)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         int visitCount = visits.size();
 
-        // 2) Агрегируем выручку по услугам (для круговой диаграммы)
         Map<String, BigDecimal> serviceRevenue = new HashMap<>();
         for (Visit visit : visits) {
             List<VisitService> vsList = visitServiceRepository.findByVisit(visit);
@@ -508,19 +498,16 @@ public class DoctorServiceImpl implements DoctorService {
             currentDate = currentDate.plusDays(1);
         }
 
-// Теперь revenuePerDay уже содержит ключи для каждого дня,
-// но все значения пока что нули. Дальше суммируем реальные визиты:
+
         for (Visit visit : visits) {
             LocalDate day = visit.getVisitDate().toLocalDate();
             BigDecimal currentRevenue = revenuePerDay.get(day);
             revenuePerDay.put(day, currentRevenue.add(visit.getTotalCost()));
         }
-        // Формируем набор данных для столбцовой диаграммы
         DefaultCategoryDataset dayDataset = new DefaultCategoryDataset();
         for (Map.Entry<LocalDate, BigDecimal> entry : revenuePerDay.entrySet()) {
             dayDataset.addValue(entry.getValue(), "Выручка", entry.getKey().format(dayFormatter));
         }
-        // Создаём столбцовую диаграмму
         JFreeChart barChart = ChartFactory.createBarChart(
                 "Ежедневная выручка",
                 "",
@@ -542,7 +529,6 @@ public class DoctorServiceImpl implements DoctorService {
         }
         byte[] barChartImageBytes = barChartOut.toByteArray();
 
-        // 4) Формируем круговую диаграмму (процентное соотношение выручки по услугам)
         DefaultPieDataset pieDataset = new DefaultPieDataset();
         for (Map.Entry<String, BigDecimal> entry : serviceRevenue.entrySet()) {
             pieDataset.setValue(entry.getKey(), entry.getValue());
@@ -555,10 +541,8 @@ public class DoctorServiceImpl implements DoctorService {
                 false
         );
         PiePlot piePlot = (PiePlot) pieChart.getPlot();
-        // Проценты на секторах
         piePlot.setLabelGenerator(new StandardPieSectionLabelGenerator("{2}"));
 
-        // Добавляем субтитул с общей выручкой в правый нижний угол
         TextTitle totalRevenueSubtitle = new TextTitle("Общая выручка: " + totalRevenue);
         totalRevenueSubtitle.setPosition(RectangleEdge.BOTTOM);
         totalRevenueSubtitle.setHorizontalAlignment(HorizontalAlignment.RIGHT);
@@ -572,14 +556,12 @@ public class DoctorServiceImpl implements DoctorService {
         }
         byte[] pieChartImageBytes = pieChartOut.toByteArray();
 
-        // 5) Генерация PDF
         ByteArrayOutputStream pdfOut = new ByteArrayOutputStream();
         try {
             PdfWriter writer = new PdfWriter(pdfOut);
             PdfDocument pdfDoc = new PdfDocument(writer);
             Document document = new Document(pdfDoc);
 
-            // Подключаем шрифт с поддержкой кириллицы
             PdfFont font = PdfFontFactory.createFont(
                     "src/main/resources/ofont.ru_Futura PT.ttf",
                     PdfEncodings.IDENTITY_H,
@@ -588,18 +570,15 @@ public class DoctorServiceImpl implements DoctorService {
             );
             document.setFont(font);
 
-            // Заголовок отчёта
             document.add(new Paragraph("Финансовый отчёт за период: "
                     + reportRequest.startDate().format(fullDateFormatter) + " - "
                     + reportRequest.endDate().format(fullDateFormatter))
                     .setBold()
                     .setFontSize(16));
 
-            // Краткая сводка
             document.add(new Paragraph("Общее количество визитов: " + visitCount));
             document.add(new Paragraph("Общая выручка: " + totalRevenue));
 
-            // Добавляем диаграммы
             Image barChartImage = new Image(ImageDataFactory.create(barChartImageBytes));
             barChartImage.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
             document.add(barChartImage);
@@ -609,7 +588,6 @@ public class DoctorServiceImpl implements DoctorService {
 
             document.add(pieChartImage);
 
-            // (Необязательная) Таблица услуг и цветов
             document.add(new Paragraph("Услуги:").setBold());
             float[] serviceColumnWidths = {20F, 480F};
             Table serviceTable = new Table(UnitValue.createPointArray(serviceColumnWidths))
@@ -637,15 +615,8 @@ public class DoctorServiceImpl implements DoctorService {
             }
             document.add(serviceTable);
 
-            // ----------------------------------------------------------------
-            // ГЛАВНОЕ: группируем визиты по пациентам, чтобы:
-            //  1) Сортировать по ФИО
-            //  2) Подсчитать общее кол-во визитов на пациента
-            //  3) Подсчитать суммарную выручку на пациента
-            // ----------------------------------------------------------------
             Map<String, List<Visit>> visitsByPatient = visits.stream()
                     .collect(Collectors.groupingBy(v -> {
-                        // Возьмём ФИО, или "Неизвестно" если нет пациента
                         if (v.getPatient() != null) {
                             return v.getPatient().getFullName();
                         } else {
@@ -653,16 +624,13 @@ public class DoctorServiceImpl implements DoctorService {
                         }
                     }));
 
-            // Преобразуем в список "статистик" по пациентам
             List<PatientStats> patientStatsList = new ArrayList<>();
             for (Map.Entry<String, List<Visit>> entry : visitsByPatient.entrySet()) {
                 String patientName = entry.getKey();
                 List<Visit> patientVisits = entry.getValue();
 
-                // Кол-во визитов
                 int count = patientVisits.size();
 
-                // Суммарная выручка по пациенту
                 BigDecimal totalForPatient = patientVisits.stream()
                         .map(Visit::getTotalCost)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -670,22 +638,18 @@ public class DoctorServiceImpl implements DoctorService {
                 patientStatsList.add(new PatientStats(patientName, count, totalForPatient));
             }
 
-            // Сортируем список по имени пациента
             patientStatsList.sort(Comparator.comparing(PatientStats::patientName));
 
-            // Создаём новую таблицу: ФИО пациента | Количество визитов | Общая выручка
             document.add(new Paragraph("Сводная информация по пациентам:").setBold());
             float[] patientColumnWidths = {200F, 100F, 100F};
             Table patientTable = new Table(UnitValue.createPointArray(patientColumnWidths));
 
             patientTable.setHorizontalAlignment(com.itextpdf.layout.properties.HorizontalAlignment.CENTER);
 
-            // Заголовки
             patientTable.addHeaderCell(new Cell().add(new Paragraph("ФИО пациента").setBold()));
             patientTable.addHeaderCell(new Cell().add(new Paragraph("Кол-во визитов").setBold()));
             patientTable.addHeaderCell(new Cell().add(new Paragraph("Общая выручка").setBold()));
 
-            // Заполняем строки таблицы
             for (PatientStats stats : patientStatsList) {
                 patientTable.addCell(new Cell().add(new Paragraph(stats.patientName())));
                 patientTable.addCell(new Cell().add(new Paragraph(String.valueOf(stats.visitCount()))));
