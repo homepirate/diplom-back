@@ -1,10 +1,13 @@
 package com.example.diplom.notif;
 
+import com.example.diplom.controllers.DoctorController;
 import com.example.diplom.models.Visit;
 import com.example.diplom.repositories.VisitRepository;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +22,8 @@ public class VisitNotificationService {
 
     @Autowired
     private VisitRepository visitRepository;
+    private static final Logger logger = LoggerFactory.getLogger(VisitNotificationService.class);
+
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -35,7 +40,7 @@ public class VisitNotificationService {
 
         try {
             String response = FirebaseMessaging.getInstance().send(message);
-            System.out.println("FCM ответ: " + response);
+            logger.info("FCM ответ: " + response);
         } catch (Exception e) {
             System.err.println("Ошибка при отправке FCM уведомления: " + e.getMessage());
         }
@@ -43,20 +48,20 @@ public class VisitNotificationService {
 
     @Scheduled(fixedRate = 60000)
     public void sendNotifications() {
-        System.out.println("Запуск отправки уведомлений: " + LocalDateTime.now());
+        logger.info("Запуск отправки уведомлений: " + LocalDateTime.now());
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime doctorNotificationTime = now.plusHours(1);
         List<Visit> doctorVisits = visitRepository.findVisitsByVisitDateBetween(
                 doctorNotificationTime.minusSeconds(30),
                 doctorNotificationTime.plusSeconds(30)
         );
-        System.out.println("Found " + doctorVisits.size() + " doctor visits.");
+        logger.info("Found " + doctorVisits.size() + " doctor visits.");
         for (Visit visit : doctorVisits) {
             String formattedDate = visit.getVisitDate().format(formatter);
             String messageText = "Визит: " +
                     visit.getPatient().getFullName() + " на " + formattedDate;
             String topic = "doctor_" + visit.getDoctor().getId();
-            System.out.println("Sending FCM message to topic: " + topic);
+            logger.info("Sending FCM message to topic: " + topic);
             sendFcmNotificationTopic(topic, "Визит через час", messageText);
             messagingTemplate.convertAndSend("/topic/doctor/" + visit.getDoctor().getId(), messageText);
         }
